@@ -5,13 +5,18 @@ from torchvision.datasets import CocoDetection
 from torchvision.transforms import transforms
 from torchvision.models.detection import FasterRCNN_ResNet50_FPN_Weights
 from torch.utils.data import DataLoader
+import datetime
+
+
+device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
 
 def collate_fn(batch):
     images, targets = [], []
 
     for item in batch:
         image, target = item
-        images.append(image)
+        images.append(image.to(device))
 
         # Convert the target to the format expected by the model
         # fasterrcnn_resnet50_fpn:
@@ -21,8 +26,8 @@ def collate_fn(batch):
         #
         # In coco annotation, the bbox is: [x,y,width,height]
         target_dict = {}
-        target_dict["boxes"] = torch.tensor([ [t['bbox'][0], t['bbox'][1], t['bbox'][0] + t['bbox'][2], t['bbox'][1] + t['bbox'][3] ] for t in target])
-        target_dict["labels"] = torch.tensor([t['category_id'] for t in target])
+        target_dict["boxes"] = torch.tensor([ [t['bbox'][0], t['bbox'][1], t['bbox'][0] + t['bbox'][2], t['bbox'][1] + t['bbox'][3] ] for t in target]).to(device)
+        target_dict["labels"] = torch.tensor([t['category_id'] for t in target]).to(device)
 
         targets.append(target_dict)
 
@@ -39,6 +44,8 @@ data_loader = DataLoader(dataset, batch_size=2, shuffle=False, collate_fn=collat
 
 # Load the pre-trained Faster R-CNN model
 model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights=FasterRCNN_ResNet50_FPN_Weights.COCO_V1)
+
+model.to(device)
 
 # Replace the classifier with a new one that has the correct number of output classes
 num_classes = 3  # Replace with the number of classes in your dataset
@@ -62,6 +69,7 @@ for epoch in range(num_epochs):
         losses = sum(loss for loss in loss_dict.values())
         losses.backward()
         optimizer.step()
+        print('{} Epoch {}, Training loss {}'.format(datetime.datetime.now(), epoch, losses / len(data_loader)))
     lr_scheduler.step()
 
 # Save the trained model
