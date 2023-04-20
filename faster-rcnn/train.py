@@ -15,6 +15,8 @@ try:
 except RuntimeError:
     pass
 
+
+# only use GPU 1,2
 os.environ['CUDA_VISIBLE_DEVICES'] = '1,2'
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
@@ -38,7 +40,7 @@ def collate_fn(batch):
             target_dict["boxes"] = torch.empty((0, 4), dtype=torch.float32).to(device)
             target_dict["labels"] = torch.empty((0), dtype=torch.int64).to(device)
         else:
-            target_dict["boxes"] = torch.tensor([ [t['bbox'][0], t['bbox'][1], t['bbox'][0] + t['bbox'][2], t['bbox'][1] + t['bbox'][3] ] for t in target]).to(device)
+            target_dict["boxes"] = torch.tensor([ [t['bbox'][0], t['bbox'][1], t['bbox'][0] + t['bbox'][2], t['bbox'][1] + t['bbox'][3] ] for t in target], dtype=torch.float32).to(device)
             target_dict["labels"] = torch.tensor([t['category_id'] for t in target]).to(device)
 
         targets.append(target_dict)
@@ -65,7 +67,8 @@ def train():
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
 
-    #model = nn.DataParallel(model)
+    # use DataParallel to train on multiple GPUs
+    model = nn.DataParallel(model)
     model.to(device)
 
     # Set the model to training mode
@@ -84,11 +87,10 @@ def train():
             b=b+1
             optimizer.zero_grad()
             # print(targets)
-            # print(targets[0]['boxes'].shape)
-            # print(targets[1]['boxes'].shape)
             loss_dict = model(images, targets)
             losses = sum(loss for loss in loss_dict.values())
-            losses.backward()
+            # when using DataParallel, the loss is partial loss computed on each gpu, so we need to use losses.sum()
+            losses.sum().backward()
             optimizer.step()
             print('{} Epoch {}, batch {}, Training loss {}'.format(datetime.datetime.now(), epoch, b, losses / len(data_loader)))
         lr_scheduler.step()
