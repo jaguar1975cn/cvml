@@ -80,7 +80,7 @@ def train():
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
 
     # Train the model
-    num_epochs = 10  # Replace with the number of epochs you want to train for
+    num_epochs = 30  # Replace with the number of epochs you want to train for
     for epoch in range(num_epochs):
         b=0
         for images, targets in data_loader:
@@ -96,7 +96,7 @@ def train():
         lr_scheduler.step()
 
     # Save the trained model
-    torch.save(model.state_dict(), 'model')
+    torch.save(model.state_dict(), 'model.pt')
 
 
 if __name__ == '__main__':

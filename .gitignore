@@ -2,3 +2,6 @@
 __pycache__/
 datasets
 output/
+screenlog*
+*.swp
+*.pt

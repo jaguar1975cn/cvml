@@ -26,15 +26,22 @@ tensor=convert_tensor(img)
 batch = tensor.unsqueeze(0)
 
 # load the pre-trained model
-model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights=FasterRCNN_ResNet50_FPN_Weights.COCO_V1)
+#model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights=FasterRCNN_ResNet50_FPN_Weights.COCO_V1)
+model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights=None)
 
-# set the model to evaluation mode
-model.eval()
-
-# replace the classifier with a new one, that has
+# Replace the classifier with a new one that has the correct number of output classes
 num_classes = 3  # Replace with the number of classes in your dataset
 in_features = model.roi_heads.box_predictor.cls_score.in_features
 model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+
+# use DataParalle on model
+model = nn.DataParallel(model)
+
+# move it to device
+model.to(device)
+
+# set the model to evaluation mode
+model.eval()
 
 # load the trained model
 model.load_state_dict(torch.load('faster-rcnn/model.pt', map_location=device))
@@ -62,7 +69,7 @@ index = 0
 
 # draw the bounding boxes on the image
 for box in output['boxes']:
-    xmin, ymin, xmax, ymax = box
+    xmin, ymin, xmax, ymax = box.cpu()  
 
     label = classes[output['labels'][index]]
 
