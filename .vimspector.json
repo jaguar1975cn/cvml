@@ -1,0 +1,19 @@
+{
+  "configurations": {
+    "Python": {
+      "adapter": "debugpy",
+      "configuration": {
+        "request": "launch",
+        "program": "${file}",
+        "args": [],
+        "cwd": "${workspaceRoot}",
+        "port": 5678,
+        "host": "localhost",
+        "justMyCode": false,
+        "redirectOutput": true,
+	"python":"$CONDA_PREFIX/bin/python"
+      }
+    }
+  }
+}
+
