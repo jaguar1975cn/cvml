@@ -34,7 +34,7 @@ def load_model():
     model.eval()
 
     # load the trained model
-    model.load_state_dict(torch.load('faster-rcnn/model.pt', map_location=device))
+    model.load_state_dict(torch.load('best.pt', map_location=device))
     return model
 
 
@@ -61,8 +61,16 @@ def detect(model, img_path):
 
     # find count of each class
     count = torch.bincount(output['labels'])
+    # print(count)
 
-    print("Found {} boxes and {} spaces".format(count[1], count[2]))
+    if len(count)<=1:
+        print("No object detected")
+        return
+
+    if len(count)==2:
+        print("Found {} boxes and 0 spaces".format(count[1]))
+    else:
+        print("Found {} boxes and {} spaces".format(count[1], count[2]))
 
     # define the classes
     classes = ['background', 'unoccupied', 'occupied']

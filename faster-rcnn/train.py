@@ -202,13 +202,13 @@ def train():
                             './datasets/pklot/images/train/_annotations.coco.json',
                             transforms.ToTensor())
     #img_t, _ = train_dataset[0]
-    train_data_loader = DataLoader(train_dataset, batch_size=10, shuffle=False, collate_fn=collate_fn, num_workers=4)
+    train_data_loader = DataLoader(train_dataset, batch_size=10, shuffle=True, collate_fn=collate_fn, num_workers=4)
 
     valid_dataset = CocoDetection('./datasets/pklot/images/valid',
                             './datasets/pklot/images/valid/_annotations.coco.json',
                             transforms.ToTensor())
     #img_t, _ = train_dataset[0]
-    valid_data_loader = DataLoader(valid_dataset, batch_size=10, shuffle=False, collate_fn=collate_fn, num_workers=4)
+    valid_data_loader = DataLoader(valid_dataset, batch_size=10, shuffle=True, collate_fn=collate_fn, num_workers=4)
 
     # Load the pre-trained Faster R-CNN model
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights=FasterRCNN_ResNet50_FPN_Weights.COCO_V1)
