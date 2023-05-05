@@ -12,6 +12,12 @@ from PIL import Image
 import os
 import glob
 from torchvision.datasets import CocoDetection
+from multiprocessing import set_start_method
+
+try:
+    set_start_method('spawn')
+except RuntimeError:
+    pass
 
 # set the device
 os.environ['CUDA_VISIBLE_DEVICES'] = '1,2'
@@ -114,7 +120,9 @@ def detect(index, model, img:torch.Tensor, target):
 
     if len(count)<=1:
         print("No object detected")
-        return
+        if len(target['boxes'])==0:
+            return 1.
+        return 0.
 
     if len(count)==2:
         print("{}) Found {} spaces and 0 cars".format(index, count[1]))
@@ -250,7 +258,11 @@ if __name__ == '__main__':
         img = imgs[0]
         aps.append(detect(index, model, img, target[0]))
         index += 1
+        if index > 200:
+            break
 
+    print(aps)
     mAP = sum(aps) / len(aps)
-    print("Final Mean AP: {:.4f}".format(Map))
+
+    print("Final Mean AP: {:.4f}".format(mAP))
 
