@@ -19,6 +19,9 @@ try:
 except RuntimeError:
     pass
 
+def isNaN(num):
+    return num!= num
+
 # set the device
 os.environ['CUDA_VISIBLE_DEVICES'] = '1,2'
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -199,8 +202,11 @@ def iou(box1, box2):
 
 
 def average_precision(predictions, ground_truths, iou_threshold):
-    if len(predictions) == 0 and len(ground_truths) == 0:
-        return 1
+    num_ground_truths = len(ground_truths)
+    if len(predictions) == 0 and num_ground_truths == 0:
+        return 1.
+    if num_ground_truths == 0:
+        return 0.
     predictions = sorted(predictions, key=lambda x: x[1], reverse=True)
 
     true_positives = torch.zeros(len(predictions))
@@ -231,6 +237,15 @@ def average_precision(predictions, ground_truths, iou_threshold):
     recall = torch.cat((torch.tensor([0]), recall))
 
     ap = torch.sum((recall[1:] - recall[:-1]) * precision[1:])
+    if isNaN(ap.item()):
+        print("true_positives:", true_positives)
+        print("false_positives:", false_positives)
+        print("cumulative_true_positives:", cumulative_true_positives)
+        print("cumulative_false_positives:", cumulative_false_positives)
+        print("recall:", recall)
+        print("num_ground_truths:", num_ground_truths)
+        print("ground_truths:", ground_truths)
+        print("ap:", ap)
     return ap.item()
 
 
@@ -258,8 +273,6 @@ if __name__ == '__main__':
         img = imgs[0]
         aps.append(detect(index, model, img, target[0]))
         index += 1
-        if index > 200:
-            break
 
     print(aps)
     mAP = sum(aps) / len(aps)
