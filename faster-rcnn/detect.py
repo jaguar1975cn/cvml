@@ -105,6 +105,9 @@ def show(img, output, target):
 
 def detect(index, model, img:torch.Tensor, target):
 
+    # the iou thresholds to consider
+    thresholds = torch.arange(start=0.2, end=0.7, step=0.05)
+
     # make it 3 channels and 1 batch
     batch = img.unsqueeze(0)
 
@@ -119,13 +122,15 @@ def detect(index, model, img:torch.Tensor, target):
 
     # find count of each class
     count = torch.bincount(output['labels'])
-    # print(count)
 
     if len(count)<=1:
         print("No object detected")
         if len(target['boxes'])==0:
-            return 1.
-        return 0.
+            # no ground truth, the AP is undefined
+            return float("nan")
+
+        # no object detected, but there are ground truth, the AP is 0
+        return torch.zeros(len(thresholds))
 
     if len(count)==2:
         print("{}) Found {} spaces and 0 cars".format(index, count[1]))
@@ -152,8 +157,13 @@ def detect(index, model, img:torch.Tensor, target):
         ground_truths.append(boxes)
 
 
-    ap = mean_average_precision(predictions, ground_truths, iou_threshold=0.5)
-    print("{}) Mean AP: {:.4f}".format(index, ap))
+    ap = mean_average_precision(predictions, ground_truths, thresholds)
+
+    # Create a list of formatted strings
+    formatted_list = [f"{num:3.4f}" for num in ap]
+
+    # Join the list of formatted strings with a space separator
+    print("{}) Mean AP: ".format(index) + " ".join(formatted_list))
 
     # compute the APs for each class
     return ap
@@ -200,18 +210,33 @@ def iou(box1, box2):
     union_area = box1_area + box2_area - intersection_area
     return intersection_area / union_area
 
+def generate_padding_bounding_boxes(N):
+    bounding_boxes = torch.zeros((N, 4))
+    bounding_boxes[:, 2:] = 1
+    return bounding_boxes.tolist()
 
 def average_precision(predictions, ground_truths, iou_threshold):
     num_ground_truths = len(ground_truths)
+
     if len(predictions) == 0 and num_ground_truths == 0:
         return 1.
     if num_ground_truths == 0:
         return 0.
+
+    # sort the predictions by their scores from high to low
     predictions = sorted(predictions, key=lambda x: x[1], reverse=True)
 
-    true_positives = torch.zeros(len(predictions))
-    false_positives = torch.zeros(len(predictions))
-    num_ground_truths = len(ground_truths)
+    padded = 0
+
+    # pad the ground truth when the number of predictions is greater than the number of ground truths
+    if len(predictions) > num_ground_truths:
+        diff = len(predictions) - num_ground_truths
+        padded = diff
+        ground_truths += generate_padding_bounding_boxes(diff)
+        num_ground_truths = len(ground_truths)
+
+    true_positives = torch.zeros(len(predictions), dtype=torch.int32)
+    false_positives = torch.zeros(len(predictions), dtype=torch.int32)
 
     for i, pred in enumerate(predictions):
         best_iou = 0
@@ -230,38 +255,48 @@ def average_precision(predictions, ground_truths, iou_threshold):
 
     cumulative_true_positives = torch.cumsum(true_positives, dim=0)
     cumulative_false_positives = torch.cumsum(false_positives, dim=0)
-    precision = cumulative_true_positives / (cumulative_true_positives + cumulative_false_positives)
-    recall = cumulative_true_positives / num_ground_truths
+    precision = cumulative_true_positives / (cumulative_true_positives + cumulative_false_positives) # precision = TP / (TP + FP)
+    recall = cumulative_true_positives / num_ground_truths # recall = TP / (TP + FN), but FN is 0 here
 
     precision = torch.cat((torch.tensor([1]), precision))
     recall = torch.cat((torch.tensor([0]), recall))
 
     ap = torch.sum((recall[1:] - recall[:-1]) * precision[1:])
-    if isNaN(ap.item()):
-        print("true_positives:", true_positives)
-        print("false_positives:", false_positives)
-        print("cumulative_true_positives:", cumulative_true_positives)
-        print("cumulative_false_positives:", cumulative_false_positives)
-        print("recall:", recall)
-        print("num_ground_truths:", num_ground_truths)
-        print("ground_truths:", ground_truths)
-        print("ap:", ap)
+
+    # print the ap, iou_threshold, TP, FP, total ground truths, padded ground truths
+    print("{}) {:.4f}   {:.2f}  {:3d}\u2713 {:3d}\u2717 {:3d} {:3d}".format(index, ap, iou_threshold, torch.sum(true_positives == 1), torch.sum(false_positives == 1), num_ground_truths-padded, padded))
+
+    # if True:
+    #     print("------------------")
+    #     print("true_positives:", true_positives)
+    #     print("false_positives:", false_positives)
+    #     print("cumulative_true_positives:", cumulative_true_positives)
+    #     print("cumulative_false_positives:", cumulative_false_positives)
+    #     print("precision:", precision)
+    #     print("recall:", recall)
+    #     print("num_ground_truths:", num_ground_truths)
+    #     print("------------------")
+    # print("ap:", ap, ap.item())
     return ap.item()
 
 
-def mean_average_precision(predictions_per_class, ground_truths_per_class, iou_threshold=0.5):
-    aps = []
-    for pred, gt in zip(predictions_per_class, ground_truths_per_class):
-        aps.append(average_precision(pred, gt.tolist(), iou_threshold))
+def mean_average_precision(predictions_per_class, ground_truths_per_class, thresholds):
+    mAPs=[]
+    for threshhold in thresholds:
+        aps = []
+        for pred, gt in zip(predictions_per_class, ground_truths_per_class):
+            aps_per_class = average_precision(pred, gt.tolist(), threshhold)
+            aps.append(aps_per_class)
+        mAPs.append(sum(aps) / len(aps))
 
-    return sum(aps) / len(aps)
+    return mAPs
 
 if __name__ == '__main__':
     # set the dataset root
     root = 'datasets/pklot/images/test'
     test_dataset = CocoDetection(root,  root+'/_annotations.coco.json', T.ToTensor())
 
-    test_data_loader = DataLoader(test_dataset, batch_size=1, shuffle=True, collate_fn=collate_fn, num_workers=1)
+    test_data_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn, num_workers=1)
 
     model = load_model()
 
@@ -271,11 +306,21 @@ if __name__ == '__main__':
 
     for imgs, target in test_data_loader:
         img = imgs[0]
-        aps.append(detect(index, model, img, target[0]))
+        mAP_per_image = detect(index, model, img, target[0])
+        if isNaN( mAP_per_image ): # it is undefined, e.g. the ground truth is empty or detected boxes are empty
+            continue
+        aps.append(mAP_per_image)
         index += 1
+        # if index > 3:
+        #     break
 
-    print(aps)
-    mAP = sum(aps) / len(aps)
+    aps_tensor = torch.Tensor(aps)
+    mAP = aps_tensor.mean(dim=0)
 
-    print("Final Mean AP: {:.4f}".format(mAP))
+    formatted_list = [f"{num:3.4f}" for num in mAP]
+
+    # Join the list of formatted strings with a space separator
+    print("Total Mean AP: ".format(index) + " ".join(formatted_list))
+
+
 
