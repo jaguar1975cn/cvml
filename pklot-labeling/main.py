@@ -5,6 +5,14 @@ import torchvision.transforms as T
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 
+from multiprocessing import set_start_method
+
+try:
+    set_start_method('spawn')
+except RuntimeError:
+    pass
+
+
 def load_dataset():
     # load the dataset
     transform = T.Compose([
@@ -35,4 +43,4 @@ def show_data(dataset):
 
 if __name__ == '__main__':
     dataset = load_dataset()
-    train(dataset, 0.8, 10, 2)
+    train(dataset, 0.8, 30, 2)
