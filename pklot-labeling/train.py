@@ -6,7 +6,8 @@ import torchvision.transforms as transforms
 import torchvision.models as models
 import torchvision.datasets as datasets
 from torch.utils.data import random_split
-from torchvision.models.resnet import ResNet101_Weights
+#from torchvision.models.resnet import ResNet101_Weights
+from torchvision.models.resnet import ResNet50_Weights
 from datetime import datetime
 
 
@@ -30,8 +31,8 @@ def train(dataset, ratio, num_epochs, num_classes):
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=100, shuffle=False)
 
 
-    # Load the pre-trained ResNet101 model
-    model = models.resnet101(weights=ResNet101_Weights.DEFAULT)
+    # Load the pre-trained ResNet50 model
+    model = models.resnet50(weights=ResNet50_Weights.DEFAULT)
     num_features = model.fc.in_features
 
     # Replace the last fully connected layer for fine-tuning
@@ -110,9 +111,9 @@ def train(dataset, ratio, num_epochs, num_classes):
         if val_loss <= valid_losses_min:
             print("best loss found")
             valid_losses_min = val_loss
-            torch.save(model.state_dict(), "resnet101-best.pth")
+            torch.save(model.state_dict(), "resnet50-best.pth")
         else:
-            torch.save(model.state_dict(), "resnet101-" + str(epoch) + ".pth")
+            torch.save(model.state_dict(), "resnet50-" + str(epoch) + ".pth")
 
         print(f"Epoch {epoch+1}/{num_epochs}: "
             f"Train Loss: {train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}, "
@@ -120,4 +121,4 @@ def train(dataset, ratio, num_epochs, num_classes):
 #        if epoch == 2:
 #            break
     # Save the trained model
-    torch.save(model.state_dict(), "resnet101.pth")
+    torch.save(model.state_dict(), "resnet50.pth")

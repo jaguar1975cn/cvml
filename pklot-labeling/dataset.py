@@ -101,3 +101,17 @@ class PklotSegmentedDataset(Dataset):
             target = self.target_transform(target)
 
         return image, target
+
+class CompositeDataset(Dataset):
+    def __init__(self, dataset1, dataset2):
+        self.dataset1 = dataset1
+        self.dataset2 = dataset2
+
+    def __len__(self):
+        return len(self.dataset1) + len(self.dataset2)
+
+    def __getitem__(self, index):
+        if index < len(self.dataset1):
+            return self.dataset1[index]
+        else:
+            return self.dataset2[index - len(self.dataset1)]
