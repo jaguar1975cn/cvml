@@ -12,7 +12,7 @@ from torchvision.models.detection.roi_heads import fastrcnn_loss
 from torchvision.models.detection.rpn import concat_box_prediction_layers
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from torchvision.models.resnet import ResNet101_Weights
+from torchvision.models.resnet import ResNet50_Weights
 import PIL
 
 def load_model(num_classes=2):
@@ -21,7 +21,7 @@ def load_model(num_classes=2):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load the pre-trained ResNet101 model
-    model = models.resnet101(weights=ResNet101_Weights.DEFAULT)
+    model = models.resnet50(weights=ResNet50_Weights.DEFAULT)
     num_features = model.fc.in_features
 
     # Replace the last fully connected layer for fine-tuning
@@ -37,7 +37,8 @@ def load_model(num_classes=2):
     model.eval()
 
     # load the trained model
-    model.load_state_dict(torch.load('resnet101-best.pth', map_location=device))
+    #model.load_state_dict(torch.load('resnet50.pth', map_location=device))
+    model.load_state_dict(torch.load('resnet50-best.pth', map_location=device))
 
     # return the model
     return model
@@ -135,6 +136,24 @@ class PatchesDataset(torch.utils.data.Dataset):
 
         # resize the patch to 224x224
         patch = transforms.Resize((224, 224))(patch)
+        patch = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(patch)
+        return patch
+
+    def __len__(self):
+        return len(self.patches)
+
+class PatchesDatasetOrigin(torch.utils.data.Dataset):
+    def __init__(self, patches, transform=None):
+        self.patches = patches
+        self.transform = transform
+
+    def __getitem__(self, index):
+        patch = self.patches[index]
+        if self.transform is not None:
+            patch = self.transform(patch)
+
+        # resize the patch to 224x224
+        patch = transforms.Resize((224, 224))(patch)
         return patch
 
     def __len__(self):
@@ -149,22 +168,26 @@ if __name__ == '__main__':
     #patches = get_patches(bboxes, image)
 
     # load another image
-    image = PIL.Image.open('/home/zengyi/ssd/MSc/cvml/datasets/pklot/images/train/2012-09-12_07_49_42_jpg.rf.e7098b35dc482d8fb1535974280d1df2.jpg')
+    #image = PIL.Image.open('/home/zengyi/ssd/MSc/cvml/datasets/pklot/images/train/2012-09-12_07_49_42_jpg.rf.e7098b35dc482d8fb1535974280d1df2.jpg')
+    # image = PIL.Image.open('/home/zengyi/ssd/MSc/cvml/datasets/pklot/images/train/2012-09-20_17_19_42_jpg.rf.44722699775b1a476e1506643b874401.jpg')
+    image = PIL.Image.open('/home/zengyi/ssd/MSc/cvml/datasets/pklot/images/test/2012-09-18_13_40_07_jpg.rf.61c0635e072ebc2d82b7b2ace7b2d673.jpg')
     image = transforms.ToTensor()(image)
 
     patches = get_patches(bboxes, image)
 
     dataset = PatchesDataset(patches)
-    test_data_loader = DataLoader(dataset, batch_size=64, shuffle=True)
+    datasetOrigin = PatchesDatasetOrigin(patches)
+    test_data_loader = DataLoader(dataset, batch_size=64, shuffle=False)
+    test_data_loader_origin = DataLoader(datasetOrigin, batch_size=64, shuffle=False)
 
     # show(bboxes, image)
-    show_patches(patches, 10, 10)
+    #show_patches(patches, 10, 10)
 
     classes = ['Background', 'Space', 'Occupied']
 
     model = load_model(2)
 
-    for imgs in test_data_loader:
+    for imgs, origin in zip(test_data_loader, test_data_loader_origin):
         # Run the image through the model
         # disable gradient calculation
         with torch.no_grad():
@@ -172,6 +195,6 @@ if __name__ == '__main__':
             _, predicted_labels = torch.max(output, dim=1)
 
         # show the detection
-        show_detection(imgs, predicted_labels, 8, 8)
+        show_detection(origin, predicted_labels, 8, 8)
 
     print('done')
