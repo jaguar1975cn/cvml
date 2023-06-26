@@ -27,8 +27,8 @@ def train(dataset, ratio, num_epochs, num_classes):
 
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=150, shuffle=True)
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=100, shuffle=False)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=200, shuffle=True)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=150, shuffle=False)
 
 
     # Load the pre-trained ResNet50 model

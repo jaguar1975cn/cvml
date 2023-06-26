@@ -17,6 +17,8 @@ except RuntimeError:
 def load_dataset():
     # load the dataset
     transform = T.Compose([
+        # flip the image horizontally with a probability of 0.5
+        T.RandomHorizontalFlip(p=0.5),
         T.Resize((224,224)),
         T.ToTensor(),
         T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
@@ -31,7 +33,9 @@ def load_dataset():
 def load_down_sampled_dataset():
     # load the dataset
     transform = T.Compose([
-        T.Resize((24,24)), # down sample to 24x24
+        T.Resize((32,32)), # down sample to 32x32
+        # flip the image horizontally with a probability of 0.5
+        T.RandomHorizontalFlip(p=0.5),
         T.Resize((224,224)), # then up sample to 224x224 (ImageNet size)
         T.ToTensor(),
         T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
