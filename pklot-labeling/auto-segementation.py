@@ -44,10 +44,10 @@ def load_model(num_classes=2):
     return model
 
 
-def load():
+def load_boxes():
     # Define the dataset and data loader
-    train_dataset = CocoDetection('/home/zengyi/ssd/MSc/cvml/datasets/pklot/fully-labeled/PKLot Full Annotation.v2i.coco/test',
-                            '/home/zengyi/ssd/MSc/cvml/datasets/pklot/fully-labeled/PKLot Full Annotation.v2i.coco/test/_annotations.coco.json',
+    train_dataset = CocoDetection('datasets/pklot/fully-labeled/PKLot Full Annotation.v3i.coco/test',
+                            'datasets/pklot/fully-labeled/PKLot Full Annotation.v3i.coco/test/_annotations.coco.json',
                             transforms.ToTensor())
     it = iter(train_dataset)
     image, targets = next(it)
@@ -57,7 +57,7 @@ def load():
     return bboxes, image
 
 def show(bboxes, image):
-    # plot each bbox of the image
+    """ Plot an image with bounding boxes """
     fig, ax = plt.subplots()
     ax.imshow(transforms.ToPILImage()(image))
     for bbox in bboxes:
@@ -66,7 +66,7 @@ def show(bboxes, image):
     plt.show()
 
 def get_patches(bboxes, image):
-    # extract each patch from the image
+    """ Extract patches from an image given a list of bounding boxes """
     patches = []
     for bbox in bboxes:
         x, y, w, h = bbox
@@ -75,6 +75,7 @@ def get_patches(bboxes, image):
     return patches
 
 def show_patches(patches, rows, cols):
+    """ Plot a list of patches in a grid of rows x cols """
     # get number of patches to plot
     number_of_patches = cols * rows
     number_of_patches = min(number_of_patches, len(patches))
@@ -162,33 +163,37 @@ class PatchesDatasetOrigin(torch.utils.data.Dataset):
 if __name__ == '__main__':
 
     # load the image and bboxes
-    bboxes, image = load()
+    bboxes, image_template = load_boxes()
+    #show(bboxes, image_template)
 
-    # get patches from the image
-    #patches = get_patches(bboxes, image)
 
-    # load another image
-    #image = PIL.Image.open('/home/zengyi/ssd/MSc/cvml/datasets/pklot/images/train/2012-09-12_07_49_42_jpg.rf.e7098b35dc482d8fb1535974280d1df2.jpg')
-    # image = PIL.Image.open('/home/zengyi/ssd/MSc/cvml/datasets/pklot/images/train/2012-09-20_17_19_42_jpg.rf.44722699775b1a476e1506643b874401.jpg')
-    image = PIL.Image.open('/home/zengyi/ssd/MSc/cvml/datasets/pklot/images/test/2012-09-18_13_40_07_jpg.rf.61c0635e072ebc2d82b7b2ace7b2d673.jpg')
+    # load a test image
+    #image = PIL.Image.open('datasets/pklot/images/train/2012-09-12_07_49_42_jpg.rf.e7098b35dc482d8fb1535974280d1df2.jpg')
+    #image = PIL.Image.open('datasets/pklot/images/test/2012-09-12_08_15_53_jpg.rf.99e02d9ed6b5c5d5923ff04866d185d1.jpg')
+    image = PIL.Image.open('datasets/pklot/images/test/2012-09-18_13_40_07_jpg.rf.61c0635e072ebc2d82b7b2ace7b2d673.jpg')
     image = transforms.ToTensor()(image)
 
+    # get patches from the image
     patches = get_patches(bboxes, image)
 
+    # load two datasets, one for the normalised and one for the original images
     dataset = PatchesDataset(patches)
     datasetOrigin = PatchesDatasetOrigin(patches)
     test_data_loader = DataLoader(dataset, batch_size=64, shuffle=False)
     test_data_loader_origin = DataLoader(datasetOrigin, batch_size=64, shuffle=False)
 
-    # show(bboxes, image)
+    # show the patches
     #show_patches(patches, 10, 10)
 
+    # define the classes
     classes = ['Background', 'Space', 'Occupied']
 
+    # load the model
     model = load_model(2)
 
+    # run the model on the patches
     for imgs, origin in zip(test_data_loader, test_data_loader_origin):
-        # Run the image through the model
+
         # disable gradient calculation
         with torch.no_grad():
             output = model(imgs)
