@@ -1,4 +1,9 @@
 import numpy as np
+import os
+import datetime
+import time
+import json
+import glob
 import torch
 import torchvision
 import torch.nn as nn
@@ -13,12 +18,24 @@ from torchvision.models.detection.rpn import concat_box_prediction_layers
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from torchvision.models.resnet import ResNet50_Weights
+from multiprocessing import set_start_method
 import PIL
+from PIL.ExifTags import TAGS
+
+try:
+    set_start_method('spawn')
+except RuntimeError:
+    pass
+
+def isNaN(num):
+    return num!= num
+
+# set the device
+#os.environ['CUDA_VISIBLE_DEVICES'] = '1,2'
+device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
 
 def load_model(num_classes=2):
-
-    # Set device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load the pre-trained ResNet101 model
     model = models.resnet50(weights=ResNet50_Weights.DEFAULT)
@@ -160,8 +177,179 @@ class PatchesDatasetOrigin(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.patches)
 
-if __name__ == '__main__':
 
+class CocoAnnotaionGenerator:
+    """ Generate coco annotation file for a list of images and bounding boxes """
+
+    def __init__(self, image_path, annotation_path, bboxes, model):
+        self.image_path = image_path
+        self.annotation_path = annotation_path
+        self.bboxes = bboxes
+        self.model = model
+        self.annotations = []
+        self.root = {}
+        self.root['info'] = {
+            "description": "PKLot dataset - full annotation",
+            "url": "https://app.roboflow.com/personal-ysmui/pklot-full-annotation",
+            "version": "1.0",
+            "year": 2023,
+            "contributor": "University of Buckingham",
+            "date_created": "2023-07-04T09:00:00+00:00"
+        }
+        self.root['licenses'] = [
+            {
+                "url": "https://creativecommons.org/licenses/by/4.0/",
+                "id": 1,
+                "name": "Attribution License"
+            }
+        ]
+        self.root['categories'] = [
+            {
+                "id": 0,
+                "name": "spaces",
+                "supercategory": "none"
+            },
+            {
+                "id": 1,
+                "name": "space-empty",
+                "supercategory": "spaces"
+            },
+            {
+                "id": 2,
+                "name": "space-occupied",
+                "supercategory": "spaces"
+            }
+        ]
+        self.root['images'] = []
+        self.root['annotations'] = []
+
+    def add_annotation(self, image_id, bbox, category_id):
+        """ Add an annotation to the annotations """
+        self.root['annotations'].append({
+            "id": len(self.root['annotations']),
+            "image_id": image_id,
+            "category_id": category_id,
+            "segmentation": [],
+            "area": bbox[2] * bbox[3],
+            "bbox": bbox,
+            "iscrowd": 0
+        })
+
+    def add_image(self, image, image_path):
+        """ Add an image to the annotations """
+
+        id = len(self.root['images'])
+        # add the image
+        self.root['images'].append({
+            "id": id,
+            "width": image.width,
+            "height": image.height,
+            "file_name": image_path,
+            "license": 1,
+            "flickr_url": "",
+            "coco_url": "",
+            "date_captured": self.get_timestamp(image, image_path)
+        })
+        return id
+
+    def get_timestamp(self, image, image_path):
+        # Get the EXIF metadata
+        exif_data = image._getexif()
+
+        # Check if EXIF data is available
+        if exif_data is not None:
+            # Iterate over the EXIF tags
+            for tag_id, value in exif_data.items():
+                tag_name = TAGS.get(tag_id, tag_id)
+                if tag_name == "DateTimeOriginal":
+                    # The timestamp is stored in the "DateTimeOriginal" tag
+                    return value
+
+        # If no EXIF data is available, use the file creation time
+        creation_time = os.path.getctime(image.filename)
+        time_struct = time.localtime(creation_time)
+        # Format the struct_time into a string
+        formatted_time = time.strftime("%Y-%m-%dT%H:%M:%S", time_struct)
+        return formatted_time
+
+    def generate(self):
+        """ Generate the annotations """
+        # get the list of images
+        images = glob.glob(os.path.join(self.image_path, "*.jpg"))
+
+        tt = 0
+
+        # for each image
+        for image_path in images:
+            # load the image
+            image = PIL.Image.open(image_path)
+
+            # add the image to the annotations
+            image_id = self.add_image(image, image_path)
+
+            # convert the image to a tensor
+            image = transforms.ToTensor()(image)
+
+            # get the patches
+            patches = get_patches(self.bboxes, image)
+
+            # create a dataset for the patches
+            dataset = PatchesDataset(patches)
+
+            # create a dataloader for the dataset
+            dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=False)
+
+            bbox_index = 0
+
+            for imgs in dataloader:
+
+                # disable gradient calculation
+                with torch.no_grad():
+                    output = self.model(imgs)
+                    #_, predicted_labels = torch.max(output, dim=1)
+                    predicted_labels = torch.argmax(output, dim=1)
+
+                # add the annotations
+                for i in range(len(predicted_labels)):
+                    # get the label
+                    label = predicted_labels[i].item()
+
+                    # get the bbox
+                    bbox = self.bboxes[bbox_index]
+
+                    # add the annotation
+                    self.add_annotation(image_id, bbox, label)
+
+                    bbox_index += 1
+
+            tt += 1
+            if tt == 2:
+                break
+
+        # save the annotations
+        with open(self.annotation_path, 'w') as f:
+            json.dump(self.root, f, indent=4)
+
+
+def auto_annotation():
+    """ Automatically annotate the images in the dataset """
+
+    # load the image and bboxes
+    bboxes, image_template = load_boxes()
+
+    # load the model
+    model = load_model(2)
+
+    # create a coco annotation generator
+    generator = CocoAnnotaionGenerator('datasets/pklot/downloads/parking lot database/PKLot/PUCPR/Sunny/2012-09-11',
+                                       'datasets/pklot/downloads/parking lot database/PKLot/PUCPR/Sunny/2012-09-11/full_annotation.json',
+                                       bboxes, model)
+
+    # generate the annotations
+    generator.generate()
+
+
+def test_show():
     # load the image and bboxes
     bboxes, image_template = load_boxes()
     #show(bboxes, image_template)
@@ -203,3 +391,6 @@ if __name__ == '__main__':
         show_detection(origin, predicted_labels, 8, 8)
 
     print('done')
+
+if __name__ == '__main__':
+    auto_annotation()
