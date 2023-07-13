@@ -276,11 +276,13 @@ class CocoAnnotaionGenerator:
         """ Generate the annotations """
         # get the list of images
         images = glob.glob(os.path.join(self.image_path, "*.jpg"))
+        print("found %d images under: %s" % (len(images), self.image_path))
 
         tt = 0
 
         # for each image
         for image_path in images:
+            print("%d: %s" % (tt, image_path))
             # load the image
             image = PIL.Image.open(image_path)
 
@@ -323,8 +325,8 @@ class CocoAnnotaionGenerator:
                     bbox_index += 1
 
             tt += 1
-            if tt == 2:
-                break
+#            if tt == 2:
+#                break
 
         # save the annotations
         with open(self.annotation_path, 'w') as f:
@@ -341,8 +343,8 @@ def auto_annotation():
     model = load_model(2)
 
     # create a coco annotation generator
-    generator = CocoAnnotaionGenerator('datasets/pklot/downloads/parking lot database/PKLot/PUCPR/Sunny/2012-09-11',
-                                       'datasets/pklot/downloads/parking lot database/PKLot/PUCPR/Sunny/2012-09-11/full_annotation.json',
+    generator = CocoAnnotaionGenerator('datasets/pklot/images/PUCPR',
+                                       'datasets/pklot/images/PUCPR/full_annotation.json',
                                        bboxes, model)
 
     # generate the annotations
