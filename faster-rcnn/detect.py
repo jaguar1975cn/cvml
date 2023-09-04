@@ -33,7 +33,7 @@ def load_model():
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights=None)
 
     # Replace the classifier with a new one that has the correct number of output classes
-    num_classes = 3  # Replace with the number of classes in your dataset
+    num_classes = 2  # Replace with the number of classes in your dataset
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
     model.roi_heads.detections_per_img = 300
