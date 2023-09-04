@@ -343,8 +343,8 @@ def auto_annotation():
     model = load_model(2)
 
     # create a coco annotation generator
-    generator = CocoAnnotaionGenerator('datasets/pklot/images/PUCPR',
-                                       'datasets/pklot/images/PUCPR/full_annotation.json',
+    generator = CocoAnnotaionGenerator('datasets/pklot/images/PUCPR/test',
+                                       'datasets/pklot/images/PUCPR/test/full_annotation.json',
                                        bboxes, model)
 
     # generate the annotations
