@@ -40,7 +40,7 @@ def show(img, targets):
 
 def run():
     train_dataset = CocoDetection('./',
-                            './datasets/pklot/downloads/parking lot database/PKLot/PUCPR/Sunny/2012-09-11/full_annotation.json',
+                            './datasets/pklot/images/PUCPR/train/annotations.json',
                             transforms.ToTensor())
 
     #train_data_loader = DataLoader(train_dataset, batch_size=10, shuffle=False, num_workers=4)
