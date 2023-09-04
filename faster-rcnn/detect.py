@@ -48,7 +48,7 @@ def load_model():
     model.eval()
 
     # load the trained model
-    model.load_state_dict(torch.load('best.pt', map_location=device))
+    model.load_state_dict(torch.load('faster-rcnn/faster-rcnn-best.pt', map_location=device))
     return model
 
 def show(img, output, target):
@@ -72,7 +72,13 @@ def show(img, output, target):
         label = classes[output['labels'][index]]
 
         # use different color for different classes
-        color = 'r' if label == 'occupied' else 'g'
+        if output['labels'][index] == 0:
+            color = 'b'
+        elif output['labels'][index] == 1:
+            color = 'g'
+        else:
+            color = 'r'
+        #color = 'r' if label == 'occupied' else 'g'
 
         rect = plt.Rectangle((xmin, ymin), xmax - xmin, ymax - ymin, fill=False, color=color, linewidth=1)
         ax.add_patch(rect)
@@ -92,8 +98,15 @@ def show(img, output, target):
 
         label = classes[target['labels'][index]]
 
+        if target['labels'][index] == 0:
+            color = 'b'
+        elif target['labels'][index] == 1:
+            color = 'g'
+        else:
+            color = 'r'
+
         # use different color for different classes
-        color = 'r' if label == 'occupied' else 'g'
+        #color = 'r' if label == 'occupied' else 'g'
 
         rect = plt.Rectangle((xmin, ymin), xmax - xmin, ymax - ymin, fill=False, color=color, linewidth=1)
         ax.add_patch(rect)
@@ -101,7 +114,7 @@ def show(img, output, target):
         index = index + 1
 
     fig.show()
-    #plt.savefig('output/{}.jpg'.format((index)))
+    #plt.savefig('output2/{}.jpg'.format(target["image_id"]))
     plt.close(fig)
 
 def detect(index, model, img:torch.Tensor, target):
@@ -128,7 +141,7 @@ def detect(index, model, img:torch.Tensor, target):
         print("No object detected")
         if len(target['boxes'])==0:
             # no ground truth, the AP is undefined
-            return float("nan")
+            return False#float("nan")
 
         # no object detected, but there are ground truth, the AP is 0
         return torch.zeros(len(thresholds))
@@ -138,7 +151,7 @@ def detect(index, model, img:torch.Tensor, target):
     else:
         print("{}) Found {} spaces and {} cars".format(index, count[1], count[2]))
 
-    # show(img, output, target)
+    show(img, output, target)
 
     classes = [1,2]
     # collect boxes per class
@@ -296,8 +309,8 @@ def mean_average_precision(predictions_per_class, ground_truths_per_class, thres
 
 if __name__ == '__main__':
     # set the dataset root
-    root = 'datasets/pklot/images/test'
-    test_dataset = CocoDetection(root,  root+'/_annotations.coco.json', T.ToTensor())
+    root = 'datasets/pklot/images/PUCPR/test'
+    test_dataset = CocoDetection(root,  root+'/annotations.json', T.ToTensor())
 
     test_data_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn, num_workers=1)
 
@@ -310,7 +323,7 @@ if __name__ == '__main__':
     for imgs, target in test_data_loader:
         img = imgs[0]
         mAP_per_image = detect(index, model, img, target[0])
-        if isNaN( mAP_per_image ): # it is undefined, e.g. the ground truth is empty or detected boxes are empty
+        if type( mAP_per_image ) == bool: # it is undefined, e.g. the ground truth is empty or detected boxes are empty
             continue
         aps.append(mAP_per_image)
         index += 1
