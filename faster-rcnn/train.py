@@ -24,7 +24,7 @@ except RuntimeError:
 
 
 # only use GPU 1,2
-os.environ['CUDA_VISIBLE_DEVICES'] = '1,2'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 
@@ -194,30 +194,33 @@ def eval_forward(model, images, targets):
     return losses, detections
 
 def train():
-    checkpoint_path = 'checkpoint.pt'
-    best_model_path = 'best.pt'
+    checkpoint_path = 'faster-rcnn-checkpoint.pt'
+    best_model_path = 'faster-rcnn-best.pt'
+    batch_size = 10
+    workers = 1
 
     # Define the dataset and data loader
     train_dataset = CocoDetection('./datasets/pklot/images/train',
-                            './datasets/pklot/images/train/_annotations.coco.json',
+                            './datasets/pklot/images/PUCPR/train/annotations.json',
                             transforms.ToTensor())
     #img_t, _ = train_dataset[0]
-    train_data_loader = DataLoader(train_dataset, batch_size=10, shuffle=True, collate_fn=collate_fn, num_workers=4)
+    train_data_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn, num_workers=workers)
 
     valid_dataset = CocoDetection('./datasets/pklot/images/valid',
-                            './datasets/pklot/images/valid/_annotations.coco.json',
+                            './datasets/pklot/images/PUCPR/valid/annotations.json',
                             transforms.ToTensor())
     #img_t, _ = train_dataset[0]
-    valid_data_loader = DataLoader(valid_dataset, batch_size=10, shuffle=True, collate_fn=collate_fn, num_workers=4)
+    valid_data_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn, num_workers=workers)
 
     # Load the pre-trained Faster R-CNN model
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights=FasterRCNN_ResNet50_FPN_Weights.COCO_V1)
 
 
     # Replace the classifier with a new one that has the correct number of output classes
-    num_classes = 3  # Replace with the number of classes in your dataset
+    num_classes = 2  # Replace with the number of classes in your dataset
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+    model.roi_heads.detections_per_img = 300
 
     # use DataParallel to train on multiple GPUs
     model = nn.DataParallel(model)
@@ -284,7 +287,7 @@ def train():
             valid_losses_min = epoch_valid_losses
 
     # Save the trained model
-    torch.save(model.state_dict(), 'model.pt')
+    torch.save(model.state_dict(), 'faster-rcnn-model.pt')
 
 
 if __name__ == '__main__':
