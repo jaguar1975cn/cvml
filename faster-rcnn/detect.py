@@ -36,6 +36,7 @@ def load_model():
     num_classes = 3  # Replace with the number of classes in your dataset
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+    model.roi_heads.detections_per_img = 300
 
     # use DataParalle on model
     model = nn.DataParallel(model)
