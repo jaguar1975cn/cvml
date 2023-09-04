@@ -187,9 +187,11 @@ def collate_fn(batch):
         if not target:
             target_dict["boxes"] = torch.empty((0, 4), dtype=torch.float32).to(device)
             target_dict["labels"] = torch.empty((0), dtype=torch.int64).to(device)
+            target_dict["image_id"] = -1
         else:
             target_dict["boxes"] = torch.tensor([ [t['bbox'][0], t['bbox'][1], t['bbox'][0] + t['bbox'][2], t['bbox'][1] + t['bbox'][3] ] for t in target], dtype=torch.float32).to(device)
             target_dict["labels"] = torch.tensor([t['category_id'] for t in target]).to(device)
+            target_dict["image_id"] = target[0]["image_id"]
 
         targets.append(target_dict)
 
