@@ -1,9 +1,11 @@
-from transformers import DetrImageProcessor, DetrForObjectDetection
+from transformers import DeformableDetrImageProcessor, DeformableDetrForObjectDetection
 import torch
 import torchvision
 import os
 import numpy
 from torch.utils.data import DataLoader
+
+
 
 class CocoDetection(torchvision.datasets.CocoDetection):
     def __init__(self, img_folder, processor):
@@ -26,11 +28,11 @@ class CocoDetection(torchvision.datasets.CocoDetection):
         return pixel_values, target
 
 class_labels = {0: 'spaces', 1: 'space-empty', 2: 'space-occupied'}
-model_name = "jameszeng/detr-finetuned-pklot"
-model = DetrForObjectDetection.from_pretrained(model_name, id2label=class_labels)
+model_name = "jameszeng/deformable-detr-finetuned-pklot"
+model = DeformableDetrForObjectDetection.from_pretrained(model_name, id2label=class_labels)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
-processor = DetrImageProcessor.from_pretrained(model_name)
+processor = DeformableDetrImageProcessor.from_pretrained(model_name)
 def collate_fn(batch):
     pixel_values = [item[0] for item in batch]
     encoding = processor.pad(pixel_values, return_tensors="pt")
