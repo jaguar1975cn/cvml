@@ -137,7 +137,6 @@ for idx, batch in enumerate(tqdm(val_dataloader)):
 
     predictions = prepare_for_coco_detection(predictions)
     evaluator.update(predictions)
-    break
 
 evaluator.synchronize_between_processes()
 evaluator.accumulate()
