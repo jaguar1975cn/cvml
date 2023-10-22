@@ -104,7 +104,8 @@ from tqdm import tqdm
 import numpy as np
 
 # initialize evaluator with ground truth (gt)
-evaluator = CocoEvaluator(coco_gt=val_dataset.coco, iou_types=["bbox"], maxDets=300)
+evaluator = CocoEvaluator(coco_gt=val_dataset.coco, iou_types=["bbox"])
+evaluator.coco_eval["bbox"].params.maxDets=[1,10,300]
 
 print("Running evaluation...")
 for idx, batch in enumerate(tqdm(val_dataloader)):
@@ -136,6 +137,7 @@ for idx, batch in enumerate(tqdm(val_dataloader)):
 
     predictions = prepare_for_coco_detection(predictions)
     evaluator.update(predictions)
+    break
 
 evaluator.synchronize_between_processes()
 evaluator.accumulate()
