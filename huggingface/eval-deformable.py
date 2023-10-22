@@ -103,7 +103,7 @@ for idx, batch in enumerate(tqdm(val_dataloader)):
 
     # turn into a list of dictionaries (one item for each example in the batch)
     orig_target_sizes = torch.stack([target["orig_size"] for target in labels], dim=0)
-    results = processor.post_process_object_detection(outputs, target_sizes=orig_target_sizes)
+    results = processor.post_process_object_detection(outputs, target_sizes=orig_target_sizes, top_k=300)
 
     # provide to metric
     # metric expects a list of dictionaries, each item

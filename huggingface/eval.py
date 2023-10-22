@@ -28,6 +28,7 @@ class CocoDetection(torchvision.datasets.CocoDetection):
 class_labels = {0: 'spaces', 1: 'space-empty', 2: 'space-occupied'}
 model_name = "jameszeng/detr-finetuned-pklot"
 model = DetrForObjectDetection.from_pretrained(model_name, id2label=class_labels)
+model.config.num_queries = 300
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
 processor = DetrImageProcessor.from_pretrained(model_name)
