@@ -4,7 +4,8 @@ import torchvision
 import os
 import numpy
 from torch.utils.data import DataLoader
-
+import matplotlib.pyplot as plt
+import torchvision.transforms as T
 
 
 class CocoDetection(torchvision.datasets.CocoDetection):
@@ -81,6 +82,21 @@ def prepare_for_coco_detection(predictions):
     return coco_results
 
 
+def show(prediction, image):
+    """ Plot an image with bounding boxes """
+    fig, ax = plt.subplots()
+    ax.imshow(image)
+    index = 0
+    for bbox in prediction['boxes']:
+        if prediction['labels'][index] == 1:
+            color = 'g'
+        elif prediction['labels'][index] == 2:
+            color = 'r'
+        rect = plt.Rectangle((bbox[0], bbox[1]), bbox[2]-bbox[0], bbox[3]-bbox[1], linewidth=1, edgecolor=color, facecolor='none')
+        ax.add_patch(rect)
+        index = index + 1
+    plt.show()
+
 
 from coco_eval import CocoEvaluator
 from tqdm import tqdm
@@ -88,7 +104,7 @@ from tqdm import tqdm
 import numpy as np
 
 # initialize evaluator with ground truth (gt)
-evaluator = CocoEvaluator(coco_gt=val_dataset.coco, iou_types=["bbox"])
+evaluator = CocoEvaluator(coco_gt=val_dataset.coco, iou_types=["bbox"], maxDets=300)
 
 print("Running evaluation...")
 for idx, batch in enumerate(tqdm(val_dataloader)):
@@ -111,11 +127,12 @@ for idx, batch in enumerate(tqdm(val_dataloader)):
     predictions = {target['image_id'].item(): output for target, output in zip(labels, results)}
 
     # print the image_id, number of predictions and the class counts
-    for image_id, prediction in predictions.items():
+    for index, (image_id, prediction) in enumerate(predictions.items()):
         labels = prediction['labels']
         unique_labels, counts = torch.unique(labels, return_counts=True)
         label_counts_dict = {class_labels[label.item()]: count.item() for label, count in zip(unique_labels, counts)}
         print("image", image_id, "total", len(labels), label_counts_dict)
+        # show(prediction, val_dataset._load_image(image_id))
 
     predictions = prepare_for_coco_detection(predictions)
     evaluator.update(predictions)
