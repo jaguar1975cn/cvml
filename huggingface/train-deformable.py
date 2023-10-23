@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 
 class CocoDetection(torchvision.datasets.CocoDetection):
     def __init__(self, img_folder, processor):
-        ann_file = os.path.join(img_folder, "an.json")
+        ann_file = os.path.join(img_folder, "full.json")
         super(CocoDetection, self).__init__(img_folder, ann_file)
         self.processor = processor
 
@@ -41,8 +41,8 @@ def main():
 
     processor = DeformableDetrImageProcessor.from_pretrained(pretrained)
 
-    train_dataset = CocoDetection(img_folder='../datasets/pklot/images/PUCPR/train', processor=processor)
-    val_dataset = CocoDetection(img_folder='../datasets/pklot/images/PUCPR/valid', processor=processor)
+    train_dataset = CocoDetection(img_folder='../datasets/pklot/images/train', processor=processor)
+    val_dataset = CocoDetection(img_folder='../datasets/pklot/images/valid', processor=processor)
 
     print("Number of training examples:", len(train_dataset))
     print("Number of validation examples:", len(val_dataset))
@@ -52,7 +52,7 @@ def main():
     image_id = image_ids[np.random.randint(0, len(image_ids))]
     print('Image n°{}'.format(image_id))
     image = train_dataset.coco.loadImgs(image_id)[0]
-    image = Image.open(os.path.join('../datasets/pklot/images/PUCPR/train', image['file_name']))
+    image = Image.open(os.path.join('../datasets/pklot/images/train', image['file_name']))
 
     annotations = train_dataset.coco.imgToAnns[image_id]
     draw = ImageDraw.Draw(image, "RGBA")
@@ -79,8 +79,8 @@ def main():
         batch['labels'] = labels
         return batch
 
-    train_dataloader = DataLoader(train_dataset, collate_fn=collate_fn, batch_size=2, shuffle=True)
-    val_dataloader = DataLoader(val_dataset, collate_fn=collate_fn, batch_size=2)
+    train_dataloader = DataLoader(train_dataset, collate_fn=collate_fn, batch_size=16, shuffle=True)
+    val_dataloader = DataLoader(val_dataset, collate_fn=collate_fn, batch_size=8)
     batch = next(iter(train_dataloader))
 
     print(batch.keys())
@@ -171,8 +171,8 @@ def main():
     trainer = Trainer(max_epochs=50, gradient_clip_val=0.1, logger=logger, default_root_dir=root_folder)
     trainer.fit(model)
 
-    model.model.push_to_hub("jameszeng/deformable-detr-finetuned-pklot", private=True)
-    processor.push_to_hub("jameszeng/deformable-detr-finetuned-pklot", private=True)
+    model.model.push_to_hub("jameszeng/deformable-detr-finetuned-pklot-full", private=True)
+    processor.push_to_hub("jameszeng/deformable-detr-finetuned-pklot-full", private=True)
 
 if __name__ == '__main__':
     try:
