@@ -10,7 +10,7 @@ import torchvision.transforms as T
 
 class CocoDetection(torchvision.datasets.CocoDetection):
     def __init__(self, img_folder, processor):
-        ann_file = os.path.join(img_folder, "an.json")
+        ann_file = os.path.join(img_folder, "full.json")
         super(CocoDetection, self).__init__(img_folder, ann_file)
         self.processor = processor
 
@@ -29,7 +29,7 @@ class CocoDetection(torchvision.datasets.CocoDetection):
         return pixel_values, target
 
 class_labels = {0: 'spaces', 1: 'space-empty', 2: 'space-occupied'}
-model_name = "jameszeng/deformable-detr-finetuned-pklot"
+model_name = "jameszeng/deformable-detr-finetuned-pklot-full"
 model = DeformableDetrForObjectDetection.from_pretrained(model_name, id2label=class_labels)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
@@ -44,7 +44,7 @@ def collate_fn(batch):
     batch['labels'] = labels
     return batch
 
-img_folder = '../datasets/pklot/images/PUCPR/test'
+img_folder = '../datasets/pklot/images/test'
 batch_size = 4
 val_dataset = CocoDetection(img_folder=img_folder, processor=processor)
 val_dataloader = DataLoader(val_dataset, collate_fn=collate_fn, batch_size=batch_size)
