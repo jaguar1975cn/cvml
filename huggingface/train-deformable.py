@@ -48,26 +48,10 @@ def main():
     print("Number of validation examples:", len(val_dataset))
 
     image_ids = train_dataset.coco.getImgIds()
-    # let's pick a random image
-    image_id = image_ids[np.random.randint(0, len(image_ids))]
-    print('Image n°{}'.format(image_id))
-    image = train_dataset.coco.loadImgs(image_id)[0]
-    image = Image.open(os.path.join('../datasets/pklot/images/train', image['file_name']))
-
-    annotations = train_dataset.coco.imgToAnns[image_id]
-    draw = ImageDraw.Draw(image, "RGBA")
 
     cats = train_dataset.coco.cats
     id2label = {k: v['name'] for k,v in cats.items()}
     print(id2label)
-
-    for annotation in annotations:
-        box = annotation['bbox']
-        class_idx = annotation['category_id']
-        x,y,w,h = tuple(box)
-        draw.rectangle((x,y,x+w,y+h), outline='red', width=1)
-        draw.text((x, y), id2label[class_idx], fill='white')
-
 
     def collate_fn(batch):
         pixel_values = [item[0] for item in batch]
@@ -79,8 +63,8 @@ def main():
         batch['labels'] = labels
         return batch
 
-    train_dataloader = DataLoader(train_dataset, collate_fn=collate_fn, batch_size=16, shuffle=True)
-    val_dataloader = DataLoader(val_dataset, collate_fn=collate_fn, batch_size=8)
+    train_dataloader = DataLoader(train_dataset, collate_fn=collate_fn, batch_size=2, shuffle=True)
+    val_dataloader = DataLoader(val_dataset, collate_fn=collate_fn, batch_size=2)
     batch = next(iter(train_dataloader))
 
     print(batch.keys())
