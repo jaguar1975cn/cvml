@@ -51,7 +51,9 @@ def main():
 
     cats = train_dataset.coco.cats
     id2label = {k: v['name'] for k,v in cats.items()}
+    label2id = {(v['name']): k for k,v in cats.items()}
     print(id2label)
+    print(label2id)
 
     def collate_fn(batch):
         pixel_values = [item[0] for item in batch]
@@ -73,13 +75,15 @@ def main():
 
     print(target)
     class Detr(pl.LightningModule):
-         def __init__(self, lr, lr_backbone, weight_decay, id2label):
+         def __init__(self, lr, lr_backbone, weight_decay, id2label, label2id):
              super().__init__()
              # replace COCO classification head with custom head
              # we specify the "no_timm" variant here to not rely on the timm library
              # for the convolutional backbone
              self.model = DeformableDetrForObjectDetection.from_pretrained(pretrained,
                                                                  num_labels=len(id2label),
+                                                                 id2label=id2label,
+                                                                 label2id=label2id,
                                                                  ignore_mismatched_sizes=True)
              # see https://github.com/PyTorchLightning/pytorch-lightning/pull/1896
              self.lr = lr
@@ -90,7 +94,7 @@ def main():
            outputs = self.model(pixel_values=pixel_values, pixel_mask=pixel_mask)
 
            return outputs
-         
+
          def common_step(self, batch, batch_idx):
            pixel_values = batch["pixel_values"]
            pixel_mask = batch["pixel_mask"]
@@ -141,7 +145,7 @@ def main():
             return val_dataloader
 
 
-    model = Detr(lr=1e-4, lr_backbone=1e-5, weight_decay=1e-4, id2label=id2label)
+    model = Detr(lr=1e-4, lr_backbone=1e-5, weight_decay=1e-4, id2label=id2label, label2id=label2id)
 
     outputs = model(pixel_values=batch['pixel_values'], pixel_mask=batch['pixel_mask'])
 
@@ -152,7 +156,7 @@ def main():
     # Define a logger with a custom directory
     logger = TensorBoardLogger(save_dir=root_folder, name='logs')
 
-    trainer = Trainer(max_epochs=50, gradient_clip_val=0.1, logger=logger, default_root_dir=root_folder)
+    trainer = Trainer(max_epochs=250, gradient_clip_val=0.1, logger=logger, default_root_dir=root_folder)
     trainer.fit(model)
 
     model.model.push_to_hub("jameszeng/deformable-detr-finetuned-pklot-full", private=True)
