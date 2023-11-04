@@ -20,6 +20,7 @@ from typing import Tuple, List, Dict, Optional
 from collections import OrderedDict
 
 from multiprocessing import set_start_method
+from huggingface_hub import HfApi
 
 try:
     set_start_method('spawn')
@@ -198,6 +199,21 @@ def eval_forward(model, images, targets):
     losses.update(proposal_losses)
     return losses, detections
 
+def push_model_to_hub(model):
+    api = HfApi()
+    repo = 'jameszeng/faster-rcnn-finetuned-pklot-full'
+    api.create_repo(repo_id=repo, private=True)
+
+    torch.save(model.state_dict(), 'fasterrcnn_resnet50_fpn.pth')
+
+    api.upload_file(
+        path_or_fileobj='fasterrcnn_resnet50_fpn.pth',
+        path_in_repo='fasterrcnn_resnet50_fpn.pth',
+        repo_id=repo,
+        repo_type='model'
+    )
+
+
 def train():
     # Load the pre-trained Faster R-CNN model
     model = load_model()
@@ -288,9 +304,10 @@ def train():
     logger = TensorBoardLogger(save_dir=root_folder, name='logs')
 
     trainer = Trainer(max_epochs=30, gradient_clip_val=0.1, logger=logger, default_root_dir=root_folder)
-    trainer.fit(model)
+    trainer.fit(model, ckpt_path='faster-rcnn_logs/logs/version_3/checkpoints/epoch=29-step=65190.ckpt')
 
-    model.model.push_to_hub("jameszeng/faster-rcnn-finetuned-pklot-full", private=True)
+    push_model_to_hub(model.model)
+    print("model pushed")
 
 
 if __name__ == '__main__':
