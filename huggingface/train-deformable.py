@@ -154,9 +154,11 @@ def main():
     root_folder = "deformable_logs"
 
     # Define a logger with a custom directory
+    #logger = TensorBoardLogger(save_dir=root_folder, name='logs',version=6)
     logger = TensorBoardLogger(save_dir=root_folder, name='logs')
 
     trainer = Trainer(max_epochs=250, gradient_clip_val=0.1, logger=logger, default_root_dir=root_folder)
+    #trainer.fit(model, ckpt_path='file.ckpt')
     trainer.fit(model)
 
     model.model.push_to_hub("jameszeng/deformable-detr-finetuned-pklot-full", private=True)
