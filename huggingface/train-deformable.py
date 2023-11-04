@@ -105,6 +105,14 @@ def main():
            loss = outputs.loss
            loss_dict = outputs.loss_dict
 
+           # loss_dict
+           # {
+              #   "loss_ce": ...,  (scalar)
+              #   "loss_bbox": ...,    (scalar)
+              #   "loss_giou": ..., (scalar)
+              #   "cardinality_error": ..., (scalar)
+           # }
+
            return loss, loss_dict
 
          def training_step(self, batch, batch_idx):
