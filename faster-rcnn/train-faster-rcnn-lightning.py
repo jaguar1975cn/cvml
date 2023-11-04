@@ -28,8 +28,8 @@ except RuntimeError:
 
 
 # only use GPU 1,2
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+#os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+#device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 
 def collate_fn(batch):
@@ -37,7 +37,7 @@ def collate_fn(batch):
 
     for item in batch:
         image, target = item
-        images.append(image.to(device))
+        images.append(image)
 
         # Convert the target to the format expected by the model
         # fasterrcnn_resnet50_fpn:
@@ -48,11 +48,11 @@ def collate_fn(batch):
         # In coco annotation, the bbox is: [x,y,width,height]
         target_dict = {}
         if not target:
-            target_dict["boxes"] = torch.empty((0, 4), dtype=torch.float32).to(device)
-            target_dict["labels"] = torch.empty((0), dtype=torch.int64).to(device)
+            target_dict["boxes"] = torch.empty((0, 4), dtype=torch.float32)
+            target_dict["labels"] = torch.empty((0), dtype=torch.int64)
         else:
-            target_dict["boxes"] = torch.tensor([ [t['bbox'][0], t['bbox'][1], t['bbox'][0] + t['bbox'][2], t['bbox'][1] + t['bbox'][3] ] for t in target], dtype=torch.float32).to(device)
-            target_dict["labels"] = torch.tensor([t['category_id'] for t in target]).to(device)
+            target_dict["boxes"] = torch.tensor([ [t['bbox'][0], t['bbox'][1], t['bbox'][0] + t['bbox'][2], t['bbox'][1] + t['bbox'][3] ] for t in target], dtype=torch.float32)
+            target_dict["labels"] = torch.tensor([t['category_id'] for t in target])
 
         targets.append(target_dict)
 
@@ -72,12 +72,12 @@ def load_model():
     model.roi_heads.detections_per_img = 300
 
     # use DataParallel to train on multiple GPUs
-    model = nn.DataParallel(model)
-    model.to(device)
+    #model = nn.DataParallel(model)
+    #model.to(device)
     return model
 
 def load_datasets():
-    batch_size = 10
+    batch_size = 1
     workers = 1
 
     # Define the dataset and data loader
@@ -109,7 +109,7 @@ def eval_forward(model, images, targets):
     model.eval()
 
     # our model is wrapped in DataParallel, get the underlying module (faster-rcnn)
-    model = model.module
+    #model = model.module
 
     original_image_sizes: List[Tuple[int, int]] = []
     for img in images:
@@ -214,6 +214,7 @@ def train():
              self.weight_decay = weight_decay
 
          def forward(self, images, targets):
+           #print("forward", images.shape, targets.shape)  
            outputs = self.model(images, targets)
            # return outputs
            # For training, outputs is a dict that contains the losses
@@ -226,35 +227,29 @@ def train():
            # }
            return outputs
 
-         def common_step(self, batch, batch_idx):
-           pixel_values = batch["pixel_values"]
-           pixel_mask = batch["pixel_mask"]
-           labels = [{k: v.to(self.device) for k, v in t.items()} for t in batch["labels"]]
-
-           outputs = self.model(pixel_values=pixel_values, pixel_mask=pixel_mask, labels=labels)
-
-           loss = outputs.loss
-           loss_dict = outputs.loss_dict
-
-           return loss, loss_dict
-
          def training_step(self, batch, batch_idx):
 
             images, targets = batch
 
+            #print("training_step", images.shape, batch_idx)
+
             loss_dict = self.model(images, targets)
             loss = sum(loss for loss in loss_dict.values())
+            loss = loss.sum()
 
             # logs metrics for each training_step,
             # and the average across the epoch
             self.log("training_loss", loss)
+            #print(loss_dict)
             for k,v in loss_dict.items():
-              self.log("train_" + k, v.item())
+                #print('train_' +k, ':', v)
+                self.log("train_" + k, v.sum().item())
 
             return loss
 
          def validation_step(self, batch, batch_idx):
             images, targets = batch
+            #print("validation_step", images.shape, batch_idx)
 
             loss_dict, detections  = eval_forward(self.model, images, targets)
             loss = sum(loss for loss in loss_dict.values())
