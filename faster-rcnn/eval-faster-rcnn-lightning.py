@@ -184,6 +184,9 @@ def detect(index, model, img:torch.Tensor, target):
     if len(count)==3:
         print("{}) Image #{}: found {} spaces and {} cars".format(index, target["image_id"], count[1], count[2]))
 
+    if target["image_id"] == -1:
+        return None
+
     res = {target["image_id"]: output}
 
     return res
