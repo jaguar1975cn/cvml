@@ -202,7 +202,7 @@ def eval_forward(model, images, targets):
 def push_model_to_hub(model):
     api = HfApi()
     repo = 'jameszeng/faster-rcnn-finetuned-pklot-full'
-    api.create_repo(repo_id=repo, private=True)
+    api.create_repo(repo_id=repo, private=True, exist_ok=True)
 
     torch.save(model.state_dict(), 'fasterrcnn_resnet50_fpn.pth')
 
@@ -303,8 +303,8 @@ def train():
     # Define a logger with a custom directory
     logger = TensorBoardLogger(save_dir=root_folder, name='logs')
 
-    trainer = Trainer(max_epochs=30, gradient_clip_val=0.1, logger=logger, default_root_dir=root_folder)
-    trainer.fit(model, ckpt_path='faster-rcnn_logs/logs/version_3/checkpoints/epoch=29-step=65190.ckpt')
+    trainer = Trainer(max_epochs=250, gradient_clip_val=0.1, logger=logger, default_root_dir=root_folder)
+    trainer.fit(model, ckpt_path='faster-rcnn_logs/logs/version_5/checkpoints/epoch=249-step=543250.ckpt')
 
     push_model_to_hub(model.model)
     print("model pushed")
