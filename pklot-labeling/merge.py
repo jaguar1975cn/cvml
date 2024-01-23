@@ -3,7 +3,7 @@ import argparse
 import os
 import sys
 import json
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
 
@@ -56,6 +56,7 @@ if __name__ == '__main__':
             found = False
 
             for annotation in enhanced_annotation['annotations']:
+                annotation = annotation.copy()
                 if annotation['image_id'] == image_id:
                     annotation['image_id'] = image['id']
                     new_annotations.append(annotation)
@@ -72,6 +73,7 @@ if __name__ == '__main__':
             found = False
 
             for annotation in original_annotations['annotations']:
+                annotation = annotation.copy()
                 if annotation['image_id'] == image['id']:
                     annotation['image_id'] = image['id']
                     new_annotations.append(annotation)
