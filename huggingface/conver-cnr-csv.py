@@ -10,7 +10,8 @@ import PIL
 import PIL.Image
 from PIL.ExifTags import TAGS
 
-ROOT = './datasets/cnr/'
+# ROOT = './datasets/cnr/'
+ROOT = './datasets/CNR-PARK/CNR-EXT_FULL_IMAGE_1000x750/'
 PARENT = 'FULL_IMAGE_1000x750/'
 WEATHER = {
     'S': 'SUNNY',
@@ -27,12 +28,12 @@ class CocoAnnotaionGenerator:
         self.annotations = []
         self.root = {}
         self.root['info'] = {
-            "description": "PKLot dataset - full annotation",
-            "url": "https://app.roboflow.com/personal-ysmui/pklot-full-annotation",
+            "description": "CNR Park Ext dataset",
+            "url": "http://cnrpark.it/",
             "version": "1.0",
-            "year": 2023,
+            "year": 2024,
             "contributor": "University of Buckingham",
-            "date_created": "2023-07-04T09:00:00+00:00"
+            "date_created": "2024-03-19T19:00:00+00:00"
         }
         self.root['licenses'] = [
             {
@@ -215,7 +216,7 @@ def add_all_annotations(generator: CocoAnnotaionGenerator, slots:object):
         date = "%i-%02i-%02i" % (year, month, day)
         path = "%s/%s/camera%i/%s" % (weather, date, camera, file_name)
         full_path = ROOT + PARENT + path
-        bbox = slots[slot]
+        bbox = slots[camera][slot]
         category = 2 if occupancy == 1 else 1
         generator.add_annotation(full_path, bbox, category)
 
@@ -238,25 +239,32 @@ def add_all_images(generator: CocoAnnotaionGenerator):
         generator.add_image(full_path)
 
 def load_slots():
+    # slots = {
+    #    1: {184:[2032, 1652, 240, 240], 185:[1890, 1404, 200,200]},
+    #    2: {601:[1908, 1466, 440, 440], 602:[1100, 1354, 440, 440]}
+    # }
     slots = {}
     for i in range(1, 10):
         csv_file = ROOT + "camera%i" % (i) + ".csv"
         print(csv_file)
+        slots[i] = {}
         with open(csv_file, newline='') as csvfile:
             datareader = csv.DictReader(csvfile)
             for row in datareader:
                 slot = int(row['SlotId'])
-                x = int(row['X'])
-                y = int(row['Y'])
-                w = int(row['W'])
-                h = int(row['H'])
-                slots[slot] = [x, y, w, h]
+                # Pixel coordinates of the bouding boxes refer to the 2592x1944 version of
+                # the image and need to be rescaled to match the 1000x750 version
+                x = int(row['X']) * 1000 // 2592
+                y = int(row['Y']) * 750 // 1944
+                w = int(row['W']) * 1000 // 2592
+                h = int(row['H']) * 750 // 1944
+                slots[i][slot] = [x, y, w, h]
     return slots
 
 if __name__ == '__main__':
-    generator = CocoAnnotaionGenerator('cnr.json')
+    generator = CocoAnnotaionGenerator('cnr3.json')
     add_all_images(generator)
     slots = load_slots()
     add_all_annotations(generator, slots)
     generator.save()
-    #print(slots)
+
