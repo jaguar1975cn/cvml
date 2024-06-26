@@ -272,6 +272,27 @@ class CocoAnnotaionGenerator:
         formatted_time = time.strftime("%Y-%m-%dT%H:%M:%S", time_struct)
         return formatted_time
 
+    def dither_boxes(self, boxes, rate=0.1):
+        """ Dither the boxes, so that one boxes becomes nine boxes,
+            we will generate eight boxes around the original box,
+            the result is nin boxes in total.
+        """
+        new_boxes = []
+        for box in boxes:
+            x, y, w, h = box
+            new_boxes.append([x, y, w, h])
+            new_boxes.append([max(0, x - int(rate * w)), max(0, y - int(rate * h)), w, h])
+            new_boxes.append([x + int(rate * w), max(0, y - int(rate * h)), w, h])
+            new_boxes.append([max(0, x - int(rate * w)), y + int(rate * h), w, h])
+            new_boxes.append([x + int(rate * w), y + int(rate * h), w, h])
+            new_boxes.append([max(0, x - int(rate * w)), y, w, h])
+            new_boxes.append([x + int(rate * w), y, w, h])
+            new_boxes.append([x, max(0, y - int(rate * h)), w, h])
+            new_boxes.append([x, y + int(rate * h), w, h])
+        return new_boxes
+
+
+
     def generate(self):
         """ Generate the annotations """
         # get the list of images
@@ -292,18 +313,26 @@ class CocoAnnotaionGenerator:
             # convert the image to a tensor
             image = transforms.ToTensor()(image)
 
+            # dither the boxes
+            dithered_bboxes = self.dither_boxes(self.bboxes)
+
             # get the patches
-            patches = get_patches(self.bboxes, image)
+            patches = get_patches(dithered_bboxes, image)
 
             # create a dataset for the patches
             dataset = PatchesDataset(patches)
 
             # create a dataloader for the dataset
-            dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=False)
+            dataloader = torch.utils.data.DataLoader(dataset, batch_size=36, shuffle=False)
 
             bbox_index = 0
 
+            img_index = 0
+
             for imgs in dataloader:
+                print('batch_index:', img_index)
+
+                img_index += 1
 
                 # disable gradient calculation
                 with torch.no_grad():
@@ -311,22 +340,49 @@ class CocoAnnotaionGenerator:
                     #_, predicted_labels = torch.max(output, dim=1)
                     predicted_labels = torch.argmax(output, dim=1)
 
+                dithered_patch_result = []
+
+                print("predicted_labels:", len(predicted_labels))
+
                 # add the annotations
                 for i in range(len(predicted_labels)):
+
                     # get the label
                     label = predicted_labels[i].item()
 
                     # get the bbox
-                    bbox = self.bboxes[bbox_index]
+                    bbox = dithered_bboxes[bbox_index]
 
-                    # add the annotation
-                    self.add_annotation(image_id, bbox, label)
+                    # add the bbox to the list
+                    dithered_patch_result.append((label, bbox))
+
+                    #self.add_annotation(image_id, bbox, label+1)
 
                     bbox_index += 1
 
+                    if len(dithered_patch_result) == 9:
+                        # because we have 9 boxes for each original box
+
+                        # now we will find out all the boxes that are occupied
+                        occupied_boxes = [result for result in dithered_patch_result if result[0] == 1]
+
+                        # if there are occupied boxes, we will pick one randomly
+                        if len(occupied_boxes) > 0:
+                            # pick a random occupied box
+                            label, bbox = occupied_boxes[torch.randint(len(occupied_boxes), (1,))]
+
+                        else:
+                            # if no box is occupied, we will pick randomly from all boxes
+                            label, bbox = dithered_patch_result[torch.randint(len(dithered_patch_result), (1,))]
+
+                        # add the annotation
+                        self.add_annotation(image_id, bbox, label+1)
+                        print('added annotation:', bbox, label+1)
+                        dithered_patch_result = []
+
             tt += 1
-#            if tt == 2:
-#                break
+            # if tt == 1:
+            #     break
 
         # save the annotations
         with open(self.annotation_path, 'w') as f:
@@ -344,7 +400,7 @@ def auto_annotation():
 
     # create a coco annotation generator
     generator = CocoAnnotaionGenerator('datasets/pklot/images/PUCPR/test',
-                                       'datasets/pklot/images/PUCPR/test/full_annotation.json',
+                                       'datasets/pklot/images/PUCPR/test/wobble_full_annotation.json',
                                        bboxes, model)
 
     # generate the annotations
