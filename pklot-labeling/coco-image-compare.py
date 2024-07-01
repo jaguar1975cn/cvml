@@ -326,13 +326,13 @@ class CocoComparer:
                     # print(f"{i} image_path1: {os.path.join(self.image_dir, all_images[i].image_path)}")
                     # print(f"{i} image_path2: {os.path.join(self.image_dir, all_images[max_index].image_path)}")
 
-            all_ids = [image.image_id for image in images]
-            print(self.similarity_matrix)
-            data = {
-                'similarity_matrix': self.similarity_matrix,
-                'image_ids': all_ids
-            }
-            pickle.dump(data, open(os.path.join(self.image_dir, f'{date}_similarity_matrix.pkl'), 'wb'))
+                all_ids = [image.image_id for image in images]
+                print(self.similarity_matrix)
+                data = {
+                    'similarity_matrix': self.similarity_matrix,
+                    'image_ids': all_ids
+                }
+                pickle.dump(data, open(os.path.join(self.image_dir, f'{date}_similarity_matrix.pkl'), 'wb'))
         return
 
     def show_similarity_matrix(self):
