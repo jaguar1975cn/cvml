@@ -14,8 +14,11 @@ import time
 import pickle
 from PIL import Image
 import imagehash
+import threading
+from tqdm import tqdm
 import sys
 from multiprocessing import set_start_method
+import concurrent.futures
 from typing import List
 
 
@@ -126,7 +129,7 @@ class ImageFeature:
     def __len__(self):
         return len(self.patches)
 
-    def calculate_similarity(self, other):
+    def calculate_similarity(self, other) -> float:
         similarity = 0.0
 
         overlapped = self.get_overlapping_patches(other)
@@ -165,7 +168,7 @@ class ImageFeature:
             # if pos == 60:
             #     break
 
-            print("diff: ", diff)
+            # print("diff: ", diff)
 
             if diff < 14:
                 identical += 1
@@ -175,10 +178,10 @@ class ImageFeature:
         # plt.show(block=True)
         #return similarity
         similarity = identical / len(overlapped)
-        print(f"Identical: {identical} / {len(overlapped)} = {similarity}")
+        # print(f"Identical: {identical} / {len(overlapped)} = {similarity}")
 
         similarity = identical / max( len(self), len(other) )
-        print(f"similarity: {identical} / max({len(self)}, {len(other)}) = {similarity}")
+        # print(f"similarity: {identical} / max({len(self)}, {len(other)}) = {similarity}")
         return similarity
 
     def get_overlapping_patches(self, other, iou_threshold=0.5):
@@ -190,7 +193,7 @@ class ImageFeature:
                 if iou > iou_threshold:
                     overlapping_patches.append((patch1, patch2))
 
-        print("overlapped:", len(overlapping_patches))
+        # print("overlapped:", len(overlapping_patches))
         return overlapping_patches
 
 class CocoComparer:
@@ -198,6 +201,8 @@ class CocoComparer:
     def __init__(self, coco_file):
         self.coco = self.load_coco(coco_file)
         self.image_dir = os.path.dirname(coco_file)
+        self.similarity_matrix = None
+        self.lock = threading.Lock() 
 
     def load_coco(self, coco_file):
         """ Load the COCO json file """
@@ -216,7 +221,7 @@ class CocoComparer:
         image_path = os.path.join(self.image_dir, image_file)
 
         # print(image_path)
-        print("image id:", image_id)
+        # print("image id:", image_id)
 
         # Load the image
         image = cv2.imread(image_path)
@@ -252,49 +257,72 @@ class CocoComparer:
 
         num = 0
 
-        for image in self.coco['images']:
+        for image in tqdm(self.coco['images'], desc="Loading image patches"):
             num += 1
             all_images.append(self.load_patches_by_category(
                 image['file_name'], image['id'], category_space_occupied))
-            if num == 10:
-                break
+            # if num == 10:
+            #     break
 
         end_time = time.time()
         time_elapsed = end_time - start_time
         print("Time elapsed:", time_elapsed, "seconds")
         return all_images
 
+    def init_similarity_matrix(self, num_images):
+        self.similarity_matrix = np.zeros((num_images, num_images))
+
+    def update_matrix(self, i:int, j:int, similarity:float):
+        with self.lock:
+            self.similarity_matrix[i, j] = similarity
+
+    def calculate_similarity(self, image1:ImageFeature, image2:ImageFeature, i, j):
+        similarity = image1 - image2
+        self.update_matrix(i, j, similarity)
+
     def create_similarity_matrix(self):
         """ Create the similarity matrix """
         all_images = self.create_metrics()
         num_images = len(all_images)
-        similarity_matrix = np.zeros((num_images, num_images))
-        for i in range(num_images):
-            max_similarity = 0
-            for j in range(i+1, num_images):
-                print(f"{all_images[i].image_id} <=> {all_images[j].image_id} : ", end=" ")
-                if i==2 and j == 168:
-                    print("break")
-                similarity_matrix[i, j] = all_images[i] - all_images[j]
-                # print(similarity_matrix[i, j])
-            print(similarity_matrix)
-            # get the maximum similarity
-            max_similarity = np.max(similarity_matrix[i])
-            # get the index of the maximum similarity
-            max_index = np.argmax(similarity_matrix[i])
-            print(f"Max similarity: {max_similarity} with {all_images[i].image_id} <-> {all_images[max_index].image_id}")
-            print(f"image_path1: {os.path.join(self.image_dir, all_images[i].image_path)}")
-            print(f"image_path2: {os.path.join(self.image_dir, all_images[max_index].image_path)}")
+        num_cpus = os.cpu_count()
+        print(f"Number of CPUs: {num_cpus}")
+        self.init_similarity_matrix(num_images)
+
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_cpus) as executor:
+
+            for i in range(num_images):
+
+                futures = []
+
+                pbar = tqdm(total=num_images, desc=f"Image {i}")
+
+                for j in range(i+1, num_images):
+                    futures.append(executor.submit(self.calculate_similarity, all_images[i], all_images[j], i, j))
+
+                for future in concurrent.futures.as_completed(futures):
+                    pbar.update(1)
+
+                # close the progress bar
+                pbar.close()
+
+                # get the maximum similarity
+                max_similarity = np.max(self.similarity_matrix[i])
+                # get the index of the maximum similarity
+                max_index = np.argmax(self.similarity_matrix[i])
+                # print(f"{i} Max similarity: {max_similarity} with {all_images[i].image_id} <-> {all_images[max_index].image_id}")
+                # print(f"{i} image_path1: {os.path.join(self.image_dir, all_images[i].image_path)}")
+                # print(f"{i} image_path2: {os.path.join(self.image_dir, all_images[max_index].image_path)}")
 
         all_ids = [image.image_id for image in all_images]
-        print(similarity_matrix)
+        print(self.similarity_matrix)
         data = {
-            'similarity_matrix': similarity_matrix,
+            'similarity_matrix': self.similarity_matrix,
             'image_ids': all_ids
         }
         pickle.dump(data, open(os.path.join(self.image_dir, 'similarity_matrix.pkl'), 'wb'))
-        return similarity_matrix
-    
+        return self.similarity_matrix
+
     def show_similarity_matrix(self):
         """ Show the similarity matrix """
         data = pickle.load(open(os.path.join(self.image_dir, 'similarity_matrix.pkl'), 'rb'))
