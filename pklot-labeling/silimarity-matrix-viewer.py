@@ -21,6 +21,8 @@ from matplotlib.backend_bases import MouseButton
 def show_similarity_matrix(file_name: str):
     """ Show the similarity matrix """
 
+    print(f'Processing file: {file_name}')
+
     image_name = os.path.basename(file_name)
     date = image_name.split('_')[0]
 
@@ -29,6 +31,7 @@ def show_similarity_matrix(file_name: str):
         similarity_matrix = data['similarity_matrix']
         similarity_matrix = np.transpose(similarity_matrix) + similarity_matrix
         np.set_printoptions(precision=2)
+        print(similarity_matrix.shape)
         print(similarity_matrix)
         image_ids = data['image_ids']
 
@@ -95,12 +98,16 @@ def test_mouse():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Show heatmap of similarity matrix')
-    parser.add_argument('file', type=str, help='The matrix pickle file')
+    parser.add_argument('file', type=str, help='The matrix pickle file or directory containing the files')
     args = parser.parse_args()
 
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
 
-    show_similarity_matrix(args.file)
-    #test_mouse()
+    if os.path.isdir(args.file):
+        files = glob.glob(os.path.join(args.file, '*.pkl'))
+        for file in files:
+            show_similarity_matrix(file)
+    else:
+        show_similarity_matrix(args.file)
