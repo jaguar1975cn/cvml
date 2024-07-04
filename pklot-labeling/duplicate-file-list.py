@@ -45,17 +45,13 @@ def list_duplicate_files(pickle_file: str, annotation_file: str, threshold: floa
     image_list2 = []
 
     # find the duplicate images by similarity > threshold
-    duplicate_images = []
     for i in range(len(image_ids)):
         for j in range(len(image_ids)):
             if similarity_matrix[i, j] > threshold and i != j:
-                duplicate_images.append((image_ids[i], image_id_to_file_name[i],
-                                         image_ids[j], image_id_to_file_name[j],
-                                         similarity_matrix[i, j]))
-                image_list1.append(image_id_to_file_name[i])
-                image_list2.append(image_id_to_file_name[j])
-                print({image_ids[i]}, image_id_to_file_name[i],
-                                         image_ids[j], image_id_to_file_name[j],
+                image_list1.append(image_id_to_file_name[image_ids[i]])
+                image_list2.append(image_id_to_file_name[image_ids[j]])
+                print(image_ids[i], image_id_to_file_name[image_ids[i]],
+                                         image_ids[j], image_id_to_file_name[image_ids[j]],
                                          similarity_matrix[i, j])
 
     # unique the image_list1 and image_list2
