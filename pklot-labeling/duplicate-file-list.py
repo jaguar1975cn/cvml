@@ -18,20 +18,10 @@ from typing import List, Dict
 from matplotlib.backend_bases import MouseButton
 
 
-def list_duplicate_files(pickle_file: str, annotation_file: str, threshold: float):
+def list_duplicate_files(pickle_file: str, image_id_to_file_name:dict, threshold: float):
     """ List duplicate files """
 
     print(f'Processing file: {pickle_file}')
-
-    with open(annotation_file, 'r') as f:
-        data = json.load(f)
-
-    images = data['images']
-
-    # create a dictionary of image_id to file_name
-    image_id_to_file_name = {}
-    for image in images:
-        image_id_to_file_name[image['id']] = image['file_name']
 
     with open(pickle_file, 'rb') as file:
         data = pickle.load(file)
@@ -91,7 +81,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Load similarity matrix and list duplicate images')
     parser.add_argument('pickle', type=str, help='The matrix pickle file or directory containing the files')
     parser.add_argument('annotation', type=str, help='The coco json annotation file')
-    parser.add_argument('--threshold', type=float, help='The threshold')
+    parser.add_argument('--threshold', type=float, default=0.9, help='The threshold')
     args = parser.parse_args()
 
     if len(sys.argv) == 1:
@@ -100,9 +90,17 @@ if __name__ == '__main__':
 
     print(args)
 
+    with open(args.annotation, 'r') as f:
+        data = json.load(f)
+
+    # create a dictionary of image_id to file_name
+    image_id_to_file_name = {}
+    for image in data['images']:
+        image_id_to_file_name[image['id']] = image['file_name']
+
     if os.path.isdir(args.pickle):
         files = glob.glob(os.path.join(args.pickle, '*.pkl'))
         for file in files:
-            list_duplicate_files(file, args.annotation, args.threshold)
+            list_duplicate_files(file, image_id_to_file_name, args.threshold)
     else:
-        list_duplicate_files(args.pickle, args.annotation, args.threshold)
+        list_duplicate_files(args.pickle, image_id_to_file_name, args.threshold)
