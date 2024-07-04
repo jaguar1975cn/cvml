@@ -330,7 +330,7 @@ class CocoAnnotaionGenerator:
             img_index = 0
 
             for imgs in dataloader:
-                print('batch_index:', img_index)
+            #    print('batch_index:', img_index)
 
                 img_index += 1
 
@@ -342,7 +342,7 @@ class CocoAnnotaionGenerator:
 
                 dithered_patch_result = []
 
-                print("predicted_labels:", len(predicted_labels))
+             #   print("predicted_labels:", len(predicted_labels))
 
                 # add the annotations
                 for i in range(len(predicted_labels)):
@@ -377,7 +377,7 @@ class CocoAnnotaionGenerator:
 
                         # add the annotation
                         self.add_annotation(image_id, bbox, label+1)
-                        print('added annotation:', bbox, label+1)
+              #          print('added annotation:', bbox, label+1)
                         dithered_patch_result = []
 
             tt += 1
@@ -399,8 +399,8 @@ def auto_annotation():
     model = load_model(2)
 
     # create a coco annotation generator
-    generator = CocoAnnotaionGenerator('datasets/pklot/images/PUCPR/test',
-                                       'datasets/pklot/images/PUCPR/test/wobble_full_annotation.json',
+    generator = CocoAnnotaionGenerator('datasets/pklot/images/PUCPR/valid',
+                                       'datasets/pklot/images/PUCPR/valid/wobble_full_annotation.json',
                                        bboxes, model)
 
     # generate the annotations
