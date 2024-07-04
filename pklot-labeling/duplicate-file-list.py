@@ -37,8 +37,8 @@ def list_duplicate_files(pickle_file: str, annotation_file: str, threshold: floa
         data = pickle.load(file)
         similarity_matrix = data['similarity_matrix']
         np.set_printoptions(precision=2)
-        print(similarity_matrix.shape)
-        print(similarity_matrix)
+        # print(similarity_matrix.shape)
+        # print(similarity_matrix)
         image_ids = data['image_ids']
 
     image_list1 = []
@@ -87,7 +87,7 @@ def list_duplicate_files(pickle_file: str, annotation_file: str, threshold: floa
     print('To be removed:', len(image_list2))
 
     # write the image_list2 to a file called to_be_removed.txt
-    with open('to_be_removed.txt', 'w') as f:
+    with open('to_be_removed.txt', 'a') as f:
         for image in image_list2:
             f.write(f'{image}\n')
 
