@@ -86,7 +86,7 @@ def show_image_histograms(image1, image2):
     plt.subplot(2, 4, 2)
     for color in colors:
         plt.plot(normalized_hist1[color], color=color)
-    plt.title('Norm Histogram of Image 1')
+    plt.title('Histogram of Normalized Image 1')
     plt.xlabel('Pixel Intensity')
     plt.ylabel('Frequency')
 
@@ -103,7 +103,7 @@ def show_image_histograms(image1, image2):
     plt.subplot(2, 4, 4)
     for color in colors:
         plt.plot(normalized_hist2[color], color=color)
-    plt.title('Norm Histogram of Image 2')
+    plt.title('Histogram of Normalized Image 2')
     plt.xlabel('Pixel Intensity')
     plt.ylabel('Frequency')
 
@@ -138,12 +138,26 @@ def show_image_histograms(image1, image2):
     cv2.normalize(gray_hist2, gray_hist2)
 
     similarity1 = cv2.compareHist(gray_hist1, gray_hist2, cv2.HISTCMP_CORREL)
-    print('Similarity1:', similarity1)
+    print('Correlation:', similarity1)
+
+    similarity3 = cv2.compareHist(gray_hist1, gray_hist2, cv2.HISTCMP_CHISQR)
+    print('Chi-Square:', similarity3)
+
+    similarity4 = cv2.compareHist(gray_hist1, gray_hist2, cv2.HISTCMP_BHATTACHARYYA)
+    print('Bhattacharyya:', similarity4)
+
+    similarity5 = cv2.compareHist(gray_hist1, gray_hist2, cv2.HISTCMP_INTERSECT)
+    print('Intersection:', similarity5)
 
     similarity2 = cv2.compareHist(gray_visual_histo1, gray_visual_histo2, cv2.HISTCMP_CORREL)
     print('Similarity2:', similarity2)
 
-    plt.suptitle(f'Similarity: gray={similarity1:.2f} normalized={similarity2:.2f}')
+    plt.suptitle(f'''Similarity:
+                  Correlation={similarity1:.2f} 
+                    Chi-Square={similarity3:.2f}
+                    Bhattacharyya={similarity4:.2f}
+                    Intersection={similarity5:.2f}
+                 normalized={similarity2:.2f}''')
 
     # Show plots
     plt.tight_layout()
