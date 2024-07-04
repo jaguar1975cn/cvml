@@ -125,7 +125,7 @@ class ImageFeature:
 
     def __iter__(self):
         return iter(self.patches)
-    
+
     def __len__(self):
         return len(self.patches)
 
@@ -198,10 +198,11 @@ class ImageFeature:
 
 class CocoComparer:
 
-    def __init__(self, coco_file):
+    def __init__(self, coco_file, exclude_file=None):
         self.coco = self.load_coco(coco_file)
         self.image_dir = os.path.dirname(coco_file)
         self.similarity_matrix = None
+        self.exclude_file = exclude_file
         self.lock = threading.Lock() 
 
     def load_coco(self, coco_file):
@@ -261,14 +262,27 @@ class CocoComparer:
 
         all_images = {}
 
+        num_excluded = 0
+
         num = 0
+
+        with open(self.exclude_file, 'r') as f:
+            exclude_list = set(f.read().splitlines())
 
         for image in tqdm(self.coco['images'], desc="Loading image patches"):
             num += 1
+
+            # exclude the image if it is in the exclude list
+            if image['file_name'] in exclude_list:
+                num_excluded += 1
+                continue
+
+            # extract the date from the file name
             img_date = self.get_date_from_image(image['file_name'])
             if img_date not in all_images:
                 all_images[img_date] = []
 
+            # load patches for each date
             all_images[img_date].append(self.load_patches_by_category(
                 image['file_name'], image['id'], category_space_occupied))
             # if num == 10:
@@ -277,6 +291,7 @@ class CocoComparer:
         end_time = time.time()
         time_elapsed = end_time - start_time
         print("Time elapsed:", time_elapsed, "seconds")
+        print("Number of excluded images:", num_excluded)
         return all_images
 
     def init_similarity_matrix(self, num_images):
@@ -327,7 +342,7 @@ class CocoComparer:
                     # print(f"{i} image_path2: {os.path.join(self.image_dir, all_images[max_index].image_path)}")
 
                 all_ids = [image.image_id for image in images]
-                print(self.similarity_matrix)
+                # print(self.similarity_matrix)
                 data = {
                     'similarity_matrix': self.similarity_matrix,
                     'image_ids': all_ids
@@ -349,12 +364,14 @@ class CocoComparer:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Compare two images from a COCO json file')
     parser.add_argument('coco_file', type=str, help='The COCO json file')
+    parser.add_argument('--exclude', type=str, help='A file list to be excluded')
+
     args = parser.parse_args()
 
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
 
-    coco_comparer = CocoComparer(args.coco_file)
+    coco_comparer = CocoComparer(args.coco_file, args.exclude)
     #coco_comparer.show_similarity_matrix()
     coco_comparer.create_similarity_matrix()
