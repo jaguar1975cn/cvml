@@ -3,7 +3,6 @@ import argparse
 import os
 import sys
 import json
-#import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
 
@@ -33,13 +32,13 @@ if __name__ == '__main__':
     enhanced_image_id_map = { x['file_name']: x['id'] for x in enhanced_annotation['images']}
 
 
-    # now enumate all files in original annotations, if the image is in the enhanced annotation,
+    # now enumerate all files in original annotations, if the image is in the enhanced annotation,
     # then we will remove its annotations from the original annotation, then insert the enhanced annotations
-    # into the original annotation, remember to replace the anntations' image_id with the original image_id
+    # into the original annotation, remember to replace the annotations' image_id with the original image_id
 
     new_annotations = []
 
-    # we will add annotions to the new_annotations, if the image is in the enhanced annotation, we will add the
+    # we will add annotations to the new_annotations, if the image is in the enhanced annotation, we will add the
     # enhanced annotations instead of the original annotations
 
     c = 0
