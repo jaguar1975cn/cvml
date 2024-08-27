@@ -1,19 +1,12 @@
-import torchvision
-import torch.nn as nn
-from torch.utils.data import DataLoader
-from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+import sys
+import os
 from torchvision.datasets import CocoDetection
 from torchvision.transforms import transforms
-from torchvision.models.detection import FasterRCNN_ResNet50_FPN_Weights
-from torchvision.models.detection.roi_heads import fastrcnn_loss
-from torchvision.models.detection.rpn import concat_box_prediction_layers
 import matplotlib.pyplot as plt
 import torchvision.transforms as T
+import argparse
 
 def show(img, targets):
-    # define the classes
-    classes = ['background', 'unoccupied', 'occupied']
-
     # Plot the image with the bounding boxes
     fig, ax = plt.subplots()
 
@@ -34,18 +27,30 @@ def show(img, targets):
         rect = plt.Rectangle((x, y), w, h, fill=False, color=color, linewidth=1)
         ax.add_patch(rect)
 
-    fig.show()
+    plt.show(block=True)
 
-    plt.close(fig)
+def run(file):
+    # get the root directory
+    root = os.path.dirname(file)
 
-def run():
-    train_dataset = CocoDetection('./',
-                            './datasets/pklot/images/PUCPR/train/annotations.json',
+    # load the dataset
+    dataset = CocoDetection(root,
+                            file,
                             transforms.ToTensor())
 
-    #train_data_loader = DataLoader(train_dataset, batch_size=10, shuffle=False, num_workers=4)
-    for img, target in train_dataset:
+    for img, target in dataset:
         show(img, target)
 
 if __name__ == '__main__':
-    run()
+    """ Example Usage:
+    python show.py ./datasets/pklot/images/PUCPR/train/annotations.json
+    """
+    parser = argparse.ArgumentParser('PKLot Dataset Annotation Viewer')
+    parser.add_argument('annotation', type=str, help='The annotation file')
+    args = parser.parse_args()
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
+
+    run(args.annotation)
