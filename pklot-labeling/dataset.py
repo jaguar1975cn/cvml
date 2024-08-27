@@ -1,9 +1,7 @@
 import os
-import pandas as pd
 import torch
 from torch.utils.data import Dataset
 import PIL
-from torchvision.io import read_image
 
 class PklotSegmentedDataset(Dataset):
     """ PKLot dataset with segmentation masks.
@@ -82,7 +80,6 @@ class PklotSegmentedDataset(Dataset):
         img_weather = self.images[idx]["img_weather"]
 
         # read the image
-        #image = read_image(img_path)
         image = PIL.Image.open(img_path)
 
         # apply the image transform
@@ -103,6 +100,8 @@ class PklotSegmentedDataset(Dataset):
         return image, target
 
 class CompositeDataset(Dataset):
+    """ Composite dataset class. """
+
     def __init__(self, dataset1, dataset2):
         self.dataset1 = dataset1
         self.dataset2 = dataset2

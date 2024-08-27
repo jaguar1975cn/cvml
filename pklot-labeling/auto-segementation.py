@@ -1,11 +1,9 @@
 import numpy as np
 import os
-import datetime
 import time
 import json
 import glob
 import torch
-import torchvision
 import torch.nn as nn
 import torchvision.models as models
 from torch.utils.data import DataLoader
@@ -16,11 +14,12 @@ from torchvision.models.detection import FasterRCNN_ResNet50_FPN_Weights
 from torchvision.models.detection.roi_heads import fastrcnn_loss
 from torchvision.models.detection.rpn import concat_box_prediction_layers
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 from torchvision.models.resnet import ResNet50_Weights
 from multiprocessing import set_start_method
 import PIL
+#from PIL import Image
 from PIL.ExifTags import TAGS
+import argparse
 
 try:
     set_start_method('spawn')
@@ -31,11 +30,9 @@ def isNaN(num):
     return num!= num
 
 # set the device
-#os.environ['CUDA_VISIBLE_DEVICES'] = '1,2'
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
-
-def load_model(num_classes=2):
+def load_model(weights_file, num_classes=2):
 
     # Load the pre-trained ResNet101 model
     model = models.resnet50(weights=ResNet50_Weights.DEFAULT)
@@ -54,17 +51,18 @@ def load_model(num_classes=2):
     model.eval()
 
     # load the trained model
-    #model.load_state_dict(torch.load('resnet50.pth', map_location=device))
-    model.load_state_dict(torch.load('resnet50-best.pth', map_location=device))
+    model.load_state_dict(torch.load(weights_file, map_location=device))
 
     # return the model
     return model
 
 
-def load_boxes():
+def load_boxes(annotation_path):
+    """ Load the bounding boxes from the manually annotated dataset """
     # Define the dataset and data loader
-    train_dataset = CocoDetection('datasets/pklot/fully-labeled/PKLot Full Annotation.v3i.coco/test',
-                            'datasets/pklot/fully-labeled/PKLot Full Annotation.v3i.coco/test/_annotations.coco.json',
+    root = os.path.dirname(annotation_path)
+    train_dataset = CocoDetection(root,
+                            annotation_path,
                             transforms.ToTensor())
     it = iter(train_dataset)
     image, targets = next(it)
@@ -80,10 +78,10 @@ def show(bboxes, image):
     for bbox in bboxes:
         rect = plt.Rectangle((bbox[0], bbox[1]), bbox[2], bbox[3], linewidth=1, edgecolor='r', facecolor='none')
         ax.add_patch(rect)
-    plt.show()
+    plt.show(block=True)
 
 def get_patches(bboxes, image):
-    """ Extract patches from an image given a list of bounding boxes """
+    """ Extract patches from an image by giving a list of bounding boxes """
     patches = []
     for bbox in bboxes:
         x, y, w, h = bbox
@@ -106,10 +104,25 @@ def show_patches(patches, rows, cols):
 
     # plot each patch
     for i, patch in enumerate(patches):
-        axs[i].imshow(transforms.ToPILImage()(patch))
+        # Convert the patch to a PIL image
+        image = transforms.ToPILImage()(patch)
+
+        # Convert the image to a NumPy array
+        image_np = np.array(image)
+
+        # Convert BGR to RGB
+        image_rgb = image_np[..., [0, 1, 2]]
+
+        # Normalize the image
+        image_rgb = image_rgb/256
+
+        # Convert the NumPy array back to a PIL image
+        # image_rgb = Image.fromarray(image_rgb)
+
+        axs[i].imshow(image_rgb)
         if i == number_of_patches-1:
             break
-    plt.show()
+    plt.show(block=True)
 
 def show_detection(images, predicted_labels, rows, cols):
     # get number of images to plot
@@ -138,7 +151,7 @@ def show_detection(images, predicted_labels, rows, cols):
     # show plot window in maximized mode
     mng = plt.get_current_fig_manager()
     mng.full_screen_toggle()
-    plt.show()
+    plt.show(block=True)
     print('done')
 
 # define a dataset for the patches
@@ -178,11 +191,11 @@ class PatchesDatasetOrigin(torch.utils.data.Dataset):
         return len(self.patches)
 
 
-class CocoAnnotaionGenerator:
+class CocoAnnotationGenerator:
     """ Generate coco annotation file for a list of images and bounding boxes """
 
-    def __init__(self, image_path, annotation_path, bboxes, model):
-        self.image_path = image_path
+    def __init__(self, image_root_path, annotation_path, bboxes, model):
+        self.image_root_path = image_root_path
         self.annotation_path = annotation_path
         self.bboxes = bboxes
         self.model = model
@@ -268,6 +281,7 @@ class CocoAnnotaionGenerator:
         # If no EXIF data is available, use the file creation time
         creation_time = os.path.getctime(image.filename)
         time_struct = time.localtime(creation_time)
+
         # Format the struct_time into a string
         formatted_time = time.strftime("%Y-%m-%dT%H:%M:%S", time_struct)
         return formatted_time
@@ -296,8 +310,8 @@ class CocoAnnotaionGenerator:
     def generate(self):
         """ Generate the annotations """
         # get the list of images
-        images = glob.glob(os.path.join(self.image_path, "*.jpg"))
-        print("found %d images under: %s" % (len(images), self.image_path))
+        images = glob.glob(os.path.join(self.image_root_path, "*.jpg"))
+        print("found %d images under: %s" % (len(images), self.image_root_path))
 
         tt = 0
 
@@ -330,19 +344,15 @@ class CocoAnnotaionGenerator:
             img_index = 0
 
             for imgs in dataloader:
-            #    print('batch_index:', img_index)
 
                 img_index += 1
 
                 # disable gradient calculation
                 with torch.no_grad():
                     output = self.model(imgs)
-                    #_, predicted_labels = torch.max(output, dim=1)
                     predicted_labels = torch.argmax(output, dim=1)
 
                 dithered_patch_result = []
-
-             #   print("predicted_labels:", len(predicted_labels))
 
                 # add the annotations
                 for i in range(len(predicted_labels)):
@@ -355,8 +365,6 @@ class CocoAnnotaionGenerator:
 
                     # add the bbox to the list
                     dithered_patch_result.append((label, bbox))
-
-                    #self.add_annotation(image_id, bbox, label+1)
 
                     bbox_index += 1
 
@@ -377,65 +385,69 @@ class CocoAnnotaionGenerator:
 
                         # add the annotation
                         self.add_annotation(image_id, bbox, label+1)
-              #          print('added annotation:', bbox, label+1)
                         dithered_patch_result = []
 
             tt += 1
-            # if tt == 1:
-            #     break
 
         # save the annotations
         with open(self.annotation_path, 'w') as f:
             json.dump(self.root, f, indent=4)
 
 
-def auto_annotation():
+def auto_annotation(args):
     """ Automatically annotate the images in the dataset """
 
+    boxes_annotation = args.boxes_annotation
+    image_root = args.image_root
+    output_annotation = args.output_annotation
+    weights_file = args.weights_file
+
     # load the image and bboxes
-    bboxes, image_template = load_boxes()
+    bboxes, image_template = load_boxes(boxes_annotation)
 
     # load the model
-    model = load_model(2)
+    model = load_model(weights_file, 2)
 
     # create a coco annotation generator
-    generator = CocoAnnotaionGenerator('datasets/pklot/images/PUCPR/valid',
-                                       'datasets/pklot/images/PUCPR/valid/wobble_full_annotation.json',
-                                       bboxes, model)
+    generator = CocoAnnotationGenerator(image_root, output_annotation, bboxes, model)
 
     # generate the annotations
     generator.generate()
 
 
-def test_show():
-    # load the image and bboxes
-    bboxes, image_template = load_boxes()
-    #show(bboxes, image_template)
+def evaluate_mode(args):
 
+    boxes_annotation = args.boxes_annotation
+    weights_file = args.weights_file
+    sample_image_path = args.sample_image_path
+
+    # load the image and bboxes
+    bboxes, image_template = load_boxes(boxes_annotation)
 
     # load a test image
-    #image = PIL.Image.open('datasets/pklot/images/train/2012-09-12_07_49_42_jpg.rf.e7098b35dc482d8fb1535974280d1df2.jpg')
-    #image = PIL.Image.open('datasets/pklot/images/test/2012-09-12_08_15_53_jpg.rf.99e02d9ed6b5c5d5923ff04866d185d1.jpg')
-    image = PIL.Image.open('datasets/pklot/images/test/2012-09-18_13_40_07_jpg.rf.61c0635e072ebc2d82b7b2ace7b2d673.jpg')
+    image = PIL.Image.open(sample_image_path)
     image = transforms.ToTensor()(image)
 
     # get patches from the image
     patches = get_patches(bboxes, image)
 
-    # load two datasets, one for the normalised and one for the original images
+    # normalize the patches
+    #patches = [ transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(patch) for patch in patches]
+
+    # show the patches
+    show_patches(patches, 10, 10)
+
+    # load two datasets, one for the normalized and one for the original images
     dataset = PatchesDataset(patches)
     datasetOrigin = PatchesDatasetOrigin(patches)
     test_data_loader = DataLoader(dataset, batch_size=64, shuffle=False)
     test_data_loader_origin = DataLoader(datasetOrigin, batch_size=64, shuffle=False)
 
-    # show the patches
-    #show_patches(patches, 10, 10)
-
     # define the classes
     classes = ['Background', 'Space', 'Occupied']
 
     # load the model
-    model = load_model(2)
+    model = load_model(weights_file, 2)
 
     # run the model on the patches
     for imgs, origin in zip(test_data_loader, test_data_loader_origin):
@@ -451,4 +463,44 @@ def test_show():
     print('done')
 
 if __name__ == '__main__':
-    auto_annotation()
+    """ Main function
+    Usage examples:
+        annotate mode:
+            python auto-segementation.py annotate
+                --weights_file ./resnet50-best.pth
+                --boxes_annotation ./datasets/pklot/fully-labeled/PKLot Full Annotation.v3i.coco/test/_annotations.coco.json
+                --image_root ./datasets/pklot/images/PUCPR/valid
+                --output_annotation ./datasets/pklot/images/PUCPR/valid/wobble_full_annotation.json
+
+        evaluate mode:
+            python auto-segementation.py evaluate
+                --weights_file ./resnet50-best.pth
+                --boxes_annotation ./datasets/pklot/fully-labeled/PKLot Full Annotation.v3i.coco/test/_annotations.coco.json
+                --sample_image_path ./datasets/pklot/images/test/2012-09-18_13_40_07_jpg.rf.61c0635e072ebc2d82b7b2ace7b2d673.jpg
+
+    """
+
+    parser = argparse.ArgumentParser('PKLot Dataset Auto Annotation')
+    subparsers = parser.add_subparsers(dest="mode", help="Select mode: annotate or show")
+
+    # Annotate mode parser
+    annotate_parser = subparsers.add_parser('annotate', help="Annotate mode")
+    annotate_parser.add_argument('--weights_file', required=True, help="Path to the weights file")
+    annotate_parser.add_argument('--boxes_annotation', required=True, help="Path to bounding boxes annotation file")
+    annotate_parser.add_argument('--image_root', required=True, help="Path to the root directory of the images")
+    annotate_parser.add_argument('--output_annotation', required=True, help="Path to save the annotations")
+    annotate_parser.set_defaults(func=auto_annotation)
+
+    # Evaluate mode parser
+    show_parser = subparsers.add_parser('evaluate', help="Evaluate mode")
+    show_parser.add_argument('--boxes_annotation', required=True, help="Path to bounding boxes annotation file")
+    show_parser.add_argument('--weights_file', required=True, help="Path to the weights file")
+    show_parser.add_argument('--sample_image_path', required=True, help="Path to the sample image")
+    show_parser.set_defaults(func=evaluate_mode)
+
+    args = parser.parse_args()
+
+    if args.mode is None:
+        parser.print_help()
+    else:
+        args.func(args)
