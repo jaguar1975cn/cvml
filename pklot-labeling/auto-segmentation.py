@@ -466,14 +466,14 @@ if __name__ == '__main__':
     """ Main function
     Usage examples:
         annotate mode:
-            python auto-segementation.py annotate
+            python auto-segmentation.py annotate
                 --weights_file ./resnet50-best.pth
                 --boxes_annotation ./datasets/pklot/fully-labeled/PKLot Full Annotation.v3i.coco/test/_annotations.coco.json
                 --image_root ./datasets/pklot/images/PUCPR/valid
                 --output_annotation ./datasets/pklot/images/PUCPR/valid/wobble_full_annotation.json
 
         evaluate mode:
-            python auto-segementation.py evaluate
+            python auto-segmentation.py evaluate
                 --weights_file ./resnet50-best.pth
                 --boxes_annotation ./datasets/pklot/fully-labeled/PKLot Full Annotation.v3i.coco/test/_annotations.coco.json
                 --sample_image_path ./datasets/pklot/images/test/2012-09-18_13_40_07_jpg.rf.61c0635e072ebc2d82b7b2ace7b2d673.jpg
